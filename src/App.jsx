@@ -13,16 +13,15 @@ import LoadingSpinner from './components/UI/LoadingSpinner';
 import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
-import Footer from './components/Layout/Footer';
-// import DashboardPage from './pages/DashboardPage';
-// import ItemsPage from './pages/ItemsPage';
-// import ItemDetailPage from './pages/ItemDetailPage';
-// import CreateItemPage from './pages/CreateItemPage';
-// import MyItemsPage from './pages/MyItemsPage';
-// import MyClaimsPage from './pages/MyClaimsPage';
-// import NotificationsPage from './pages/NotificationsPage';
-// import AdminPage from './pages/AdminPage';
-// import ProfilePage from './pages/ProfilePage';
+import DashboardPage from './pages/DashboardPage';
+import ItemsPage from './pages/ItemsPage';
+import ItemDetailPage from './pages/ItemDetailPage';
+import CreateItemPage from './pages/CreateItemPage';
+import MyItemsPage from './pages/MyItemsPage';
+import MyClaimsPage from './pages/MyClaimsPage';
+import NotificationsPage from './pages/NotificationsPage';
+import AdminPage from './pages/AdminPage';
+import ProfilePage from './pages/ProfilePage';
 
 // Create a client
 const queryClient = new QueryClient({
@@ -82,6 +81,8 @@ function AppContent() {
         <Routes>
           {/* Public Routes */}
           <Route path="/" element={<HomePage />} />
+          <Route path="/items" element={<ItemsPage />} />
+          <Route path="/items/:id" element={<ItemDetailPage />} />
           
           {/* Auth Routes */}
           <Route 
@@ -99,15 +100,73 @@ function AppContent() {
                 <RegisterPage />
               </PublicRoute>
             } 
-          />          
+          />
+
+          {/* Protected Routes */}
+          <Route 
+            path="/dashboard" 
+            element={
+              <ProtectedRoute>
+                <DashboardPage />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/create-item" 
+            element={
+              <ProtectedRoute>
+                <CreateItemPage />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/my-items" 
+            element={
+              <ProtectedRoute>
+                <MyItemsPage />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/my-claims" 
+            element={
+              <ProtectedRoute>
+                <MyClaimsPage />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/notifications" 
+            element={
+              <ProtectedRoute>
+                <NotificationsPage />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/profile" 
+            element={
+              <ProtectedRoute>
+                <ProfilePage />
+              </ProtectedRoute>
+            } 
+          />
+
+          {/* Admin Routes */}
+           <Route 
+            path="/admin/*" 
+            element={
+              <ProtectedRoute roles={['admin']}>
+                <AdminPage />
+              </ProtectedRoute>
+            } 
+          />
 
           {/* Catch all */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
       
-      <Footer />
-
       {/* Toast notifications */}
       <Toaster 
         position="top-right"
