@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { itemsAPI, adminAPI } from '../../services/api';
 import LoadingSpinner from '../UI/LoadingSpinner';
 import Pagination from '../UI/Pagination';
+import ClaimsModal from './ClaimsModal';
 import toast from 'react-hot-toast';
 import { 
   Search, 
@@ -33,6 +34,8 @@ function ItemManagement() {
     location: '',
   });
   const [selectedItems, setSelectedItems] = useState([]);
+  const [claimsModalOpen, setClaimsModalOpen] = useState(false);
+  const [selectedItemForClaims, setSelectedItemForClaims] = useState(null);
 
   const queryClient = useQueryClient();
 
@@ -107,6 +110,16 @@ function ItemManagement() {
     }
   };
 
+  const handleClaimsClick = (item) => {
+    setSelectedItemForClaims(item);
+    setClaimsModalOpen(true);
+  };
+
+  const handleClaimsModalClose = () => {
+    setClaimsModalOpen(false);
+    setSelectedItemForClaims(null);
+  };
+
   const items = data?.data?.data || [];
   const pagination = data?.data?.pagination || {};
 
@@ -136,6 +149,16 @@ function ItemManagement() {
       other: '📦',
     };
     return icons[category] || '📦';
+  };
+
+  const getClaimsStatusSummary = (claims) => {
+    if (!claims || claims.length === 0) return null;
+    
+    const pending = claims.filter(c => c.status === 'pending').length;
+    const approved = claims.filter(c => c.status === 'approved').length;
+    const rejected = claims.filter(c => c.status === 'rejected').length;
+    
+    return { pending, approved, rejected, total: claims.length };
   };
 
   return (
@@ -291,117 +314,143 @@ function ItemManagement() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {items.map((item) => (
-                    <tr key={item._id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <input
-                          type="checkbox"
-                          checked={selectedItems.includes(item._id)}
-                          onChange={() => handleSelectItem(item._id)}
-                          className="rounded border-gray-300"
-                        />
-                      </td>
-                      
-                      <td className="px-6 py-4">
-                        <div className="flex items-start space-x-3">
-                          <div className="text-2xl">{getCategoryIcon(item.category)}</div>
-                          <div className="flex-1 min-w-0">
-                            <div className="text-sm font-medium text-gray-900 truncate">
-                              {item.title}
-                            </div>
-                            <div className="text-sm text-gray-500 line-clamp-2">
-                              {item.description}
-                            </div>
-                            <div className="text-xs text-gray-400 mt-1">
-                              ID: {item._id.slice(-8)}
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-                      
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="space-y-1">
-                          <span className={`badge ${getTypeBadge(item.type)}`}>
-                            {item.type}
-                          </span>
-                          <br />
-                          <span className={`badge ${getStatusBadge(item.status)}`}>
-                            {item.status}
-                          </span>
-                          <br />
-                          <span className="badge-gray">{item.category}</span>
-                        </div>
-                      </td>
-                      
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        <div className="space-y-1">
-                          <div className="flex items-center">
-                            <MapPin className="w-4 h-4 mr-1" />
-                            <span className="truncate max-w-32">{item.location}</span>
-                          </div>
-                          <div className="flex items-center">
-                            <Clock className="w-4 h-4 mr-1" />
-                            {new Date(item.date).toLocaleDateString()}
-                          </div>
-                          <div className="text-xs text-gray-400">
-                            {formatDistanceToNow(new Date(item.createdAt), { addSuffix: true })}
-                          </div>
-                        </div>
-                      </td>
-                      
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        <div className="flex items-center">
-                          <User className="w-4 h-4 mr-2" />
-                          <div>
-                            <div className="font-medium text-gray-900">
-                              {item.reportedBy?.name || 'Unknown'}
-                            </div>
-                            <div className="text-xs text-gray-500">
-                              {item.reportedBy?.email}
+                  {items.map((item) => {
+                    const claimsSummary = getClaimsStatusSummary(item.claims);
+                    
+                    return (
+                      <tr key={item._id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <input
+                            type="checkbox"
+                            checked={selectedItems.includes(item._id)}
+                            onChange={() => handleSelectItem(item._id)}
+                            className="rounded border-gray-300"
+                          />
+                        </td>
+                        
+                        <td className="px-6 py-4">
+                          <div className="flex items-start space-x-3">
+                            <div className="text-2xl">{getCategoryIcon(item.category)}</div>
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm font-medium text-gray-900 truncate">
+                                {item.title}
+                              </div>
+                              <div className="text-sm text-gray-500 line-clamp-2">
+                                {item.description}
+                              </div>
+                              <div className="text-xs text-gray-400 mt-1">
+                                ID: {item._id.slice(-8)}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      </td>
-                      
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {item.claims && item.claims.length > 0 ? (
-                          <div className="flex items-center">
-                            <FileText className="w-4 h-4 mr-1" />
-                            <span className="font-medium text-gray-900">
-                              {item.claims.length}
+                        </td>
+                        
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="space-y-1">
+                            <span className={`badge ${getTypeBadge(item.type)}`}>
+                              {item.type}
                             </span>
-                            <span className="ml-1">
-                              claim{item.claims.length !== 1 ? 's' : ''}
+                            <br />
+                            <span className={`badge ${getStatusBadge(item.status)}`}>
+                              {item.status}
                             </span>
+                            <br />
+                            <span className="badge-gray">{item.category}</span>
                           </div>
-                        ) : (
-                          <span className="text-gray-400">No claims</span>
-                        )}
-                      </td>
-                      
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <div className="flex items-center justify-end space-x-2">
-                          <a
-                            href={`/items/${item._id}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-primary-600 hover:text-primary-700"
-                            title="View item"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </a>
-                          <button
-                            onClick={() => handleDeleteItem(item)}
-                            className="text-red-600 hover:text-red-700"
-                            title="Delete item"
-                            disabled={deleteItemMutation.isLoading}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                        
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <div className="space-y-1">
+                            <div className="flex items-center">
+                              <MapPin className="w-4 h-4 mr-1" />
+                              <span className="truncate max-w-32">{item.location}</span>
+                            </div>
+                            <div className="flex items-center">
+                              <Clock className="w-4 h-4 mr-1" />
+                              {new Date(item.date).toLocaleDateString()}
+                            </div>
+                            <div className="text-xs text-gray-400">
+                              {formatDistanceToNow(new Date(item.createdAt), { addSuffix: true })}
+                            </div>
+                          </div>
+                        </td>
+                        
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <div className="flex items-center">
+                            <User className="w-4 h-4 mr-2" />
+                            <div>
+                              <div className="font-medium text-gray-900">
+                                {item.reportedBy?.name || 'Unknown'}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                {item.reportedBy?.email}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {claimsSummary ? (
+                            <button
+                              onClick={() => handleClaimsClick(item)}
+                              className="flex items-center space-x-2 hover:bg-gray-100 rounded-lg p-2 transition-colors w-full text-left"
+                            >
+                              <FileText className="w-4 h-4 text-primary-600" />
+                              <div>
+                                <div className="font-medium text-gray-900">
+                                  {claimsSummary.total} claim{claimsSummary.total !== 1 ? 's' : ''}
+                                </div>
+                                <div className="text-xs text-gray-500 flex items-center space-x-2">
+                                  {claimsSummary.pending > 0 && (
+                                    <span className="flex items-center">
+                                      <div className="w-2 h-2 bg-yellow-400 rounded-full mr-1"></div>
+                                      {claimsSummary.pending} pending
+                                    </span>
+                                  )}
+                                  {claimsSummary.approved > 0 && (
+                                    <span className="flex items-center">
+                                      <div className="w-2 h-2 bg-green-400 rounded-full mr-1"></div>
+                                      {claimsSummary.approved} approved
+                                    </span>
+                                  )}
+                                  {claimsSummary.rejected > 0 && (
+                                    <span className="flex items-center">
+                                      <div className="w-2 h-2 bg-red-400 rounded-full mr-1"></div>
+                                      {claimsSummary.rejected} rejected
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </button>
+                          ) : (
+                            <span className="text-gray-400">No claims</span>
+                          )}
+                        </td>
+                        
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <div className="flex items-center justify-end space-x-2">
+                            <a
+                              href={`/items/${item._id}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-primary-600 hover:text-primary-700"
+                              title="View item"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </a>
+                            <button
+                              onClick={() => handleDeleteItem(item)}
+                              className="text-red-600 hover:text-red-700"
+                              title="Delete item"
+                              disabled={deleteItemMutation.isLoading}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -424,6 +473,13 @@ function ItemManagement() {
           </div>
         </>
       )}
+
+      {/* Claims Modal */}
+      <ClaimsModal
+        item={selectedItemForClaims}
+        isOpen={claimsModalOpen}
+        onClose={handleClaimsModalClose}
+      />
     </div>
   );
 }
