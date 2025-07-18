@@ -24,7 +24,8 @@ import AdminPage from './pages/AdminPage';
 import ProfilePage from './pages/ProfilePage';
 import Footer from './components/Layout/Footer';
 import StaffPage from './pages/StaffPage';
-
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
 // Create a client
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -100,6 +101,24 @@ function AppContent() {
             element={
               <PublicRoute>
                 <RegisterPage />
+              </PublicRoute>
+            } 
+          />
+
+          <Route 
+            path="/forgot-password" 
+            element={
+              <PublicRoute>
+                <ForgotPasswordPage />
+              </PublicRoute>
+            } 
+          />
+          
+          <Route 
+            path="/reset-password/:token" 
+            element={
+              <PublicRoute>
+                <ResetPasswordPage />
               </PublicRoute>
             } 
           />

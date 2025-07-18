@@ -115,6 +115,22 @@ function LoginPage() {
             </div>
           </div>
 
+          {/* Forgot Password Link */}
+          <div className="flex items-center justify-between">
+            <div></div> {/* Empty div for spacing */}
+            <div className="text-sm">
+              <Link
+                to="/forgot-password"
+                className="font-medium"
+                style={{ color: primaryColor }}
+                onMouseEnter={(e) => e.target.style.color = hoverColor}
+                onMouseLeave={(e) => e.target.style.color = primaryColor}
+              >
+                Forgot your password?
+              </Link>
+            </div>
+          </div>
+
           {/* Submit Button */}
           <div>
             <button

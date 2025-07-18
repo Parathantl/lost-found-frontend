@@ -181,12 +181,71 @@ export function AuthProvider({ children }) {
     }
   };
 
+  const forgotPassword = async (email) => {
+    try {
+      const response = await axios.post(`${API_URL}/api/auth/forgot-password`, { email });
+      toast.success(response.data.message);
+      return { success: true, message: response.data.message };
+    } catch (error) {
+      const message = error.response?.data?.message || 'Failed to send reset email';
+      toast.error(message);
+      return { success: false, error: message };
+    }
+  };
+
+  const validateResetToken = async (token) => {
+    try {
+      const response = await axios.get(`${API_URL}/api/auth/reset-password/${token}`);
+      return { success: true, message: response.data.message };
+    } catch (error) {
+      const message = error.response?.data?.message || 'Invalid or expired reset token';
+      return { success: false, error: message };
+    }
+  };
+
+  const resetPassword = async (token, password) => {
+    try {
+      const response = await axios.post(`${API_URL}/api/auth/reset-password/${token}`, { password });
+      
+      // Auto-login user after successful password reset
+      dispatch({
+        type: 'LOGIN_SUCCESS',
+        payload: {
+          user: response.data.user,
+          token: response.data.token,
+        },
+      });
+      
+      toast.success('Password reset successful!');
+      return { success: true };
+    } catch (error) {
+      const message = error.response?.data?.message || 'Failed to reset password';
+      toast.error(message);
+      return { success: false, error: message };
+    }
+  };
+
+  // Helper method to manually set auth data (used for password reset auto-login)
+  const setAuthData = (token, userData) => {
+    dispatch({
+      type: 'LOGIN_SUCCESS',
+      payload: {
+        user: userData,
+        token: token,
+      },
+    });
+  };
+
   const value = {
     ...state,
     login,
     register,
     logout,
     updateProfile,
+    forgotPassword,
+    validateResetToken,
+    resetPassword,
+    setAuthData,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
