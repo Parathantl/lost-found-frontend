@@ -47,6 +47,10 @@ export const itemsAPI = {
   
   // Mark item as returned (staff/admin)
   markItemReturned: (itemId, data) => api.put(`/items/${itemId}/return`, data),
+
+  // Mark item as handed over to police
+  handoverToPolice: (itemId, data) => api.put(`/items/handover/${itemId}`, data),
+
 };
 
 // Claims API

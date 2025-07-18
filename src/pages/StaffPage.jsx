@@ -3,9 +3,8 @@ import React, { useState } from 'react';
 import { Routes, Route, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import StaffDashboard from '../components/Staff/StaffDashboard';
-import StaffItemManagement from '../components/Staff/StaffItemManagement';
+import ItemManagement from '../components/Admin/ItemManagement';
 import StaffAnalytics from '../components/Staff/StaffAnalytics';
-import StaffClaimsReview from '../components/Staff/StaffClaimsReview';
 import { 
   BarChart3, 
   Package, 
@@ -25,7 +24,6 @@ function StaffPage() {
   const navigationItems = [
     { path: '/staff', label: 'Dashboard', icon: Home, exact: true },
     { path: '/staff/items', label: 'Item Management', icon: Package },
-    { path: '/staff/claims', label: 'Claims Review', icon: FileText },
     { path: '/staff/analytics', label: 'Location Analytics', icon: BarChart3 },
   ];
 
@@ -145,8 +143,7 @@ function StaffPage() {
           <div className="p-6">
             <Routes>
               <Route path="/" element={<StaffDashboard />} />
-              <Route path="/items" element={<StaffItemManagement />} />
-              <Route path="/claims" element={<StaffClaimsReview />} />
+              <Route path="/items" element={<ItemManagement />} />
               <Route path="/analytics" element={<StaffAnalytics />} />
             </Routes>
           </div>

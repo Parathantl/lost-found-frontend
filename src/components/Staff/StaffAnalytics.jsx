@@ -401,43 +401,7 @@ function StaffAnalytics() {
           </div>
         </div>
       </div>
-
-      {/* Export and Actions */}
-      <div className="bg-white rounded-lg shadow-sm border p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Analytics Actions</h3>
-        <div className="flex flex-wrap gap-3">
-          <button className="btn-secondary">
-            <Download className="w-4 h-4 mr-2" />
-            Export Report
-          </button>
-          <button className="btn-secondary">
-            <Share2 className="w-4 h-4 mr-2" />
-            Share Insights
-          </button>
-          <button className="btn-primary">
-            <MapPin className="w-4 h-4 mr-2" />
-            Location Comparison
-          </button>
-        </div>
-        <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-          <h4 className="font-medium text-gray-900 mb-2">Report Summary</h4>
-          <div className="text-sm text-gray-600 grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <strong>Time Period:</strong> Last {timeRange} days
-            </div>
-            <div>
-              <strong>Location:</strong> {analytics.location || user?.branch}
-            </div>
-            <div>
-              <strong>Generated:</strong> {new Date().toLocaleDateString()}
-            </div>
-          </div>
-          <p className="text-sm text-gray-600 mt-3">
-            Analytics data is updated in real-time and covers the selected time period for your assigned location. 
-            Use these insights to improve service quality and response times.
-          </p>
-        </div>
-      </div>
+      
     </div>
   );
 }

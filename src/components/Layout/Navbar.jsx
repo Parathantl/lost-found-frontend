@@ -156,7 +156,7 @@ function Navbar() {
                       <Settings className="w-4 h-4 mr-2" />
                       Profile
                     </Link>
-                    {(user?.role === 'staff' || user?.role === 'admin') && (
+                    {user?.role === 'staff' && (
                       <Link
                         to="/staff"
                         className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
@@ -301,7 +301,7 @@ function Navbar() {
                       Admin Panel
                     </Link>
                   )}
-                  {(user?.role === 'staff' || user?.role === 'admin') && (
+                  {user?.role === 'staff' && (
                     <Link
                       to="/staff"
                       className="block px-3 py-2 text-sm font-medium text-gray-700 hover:text-primary-600"
