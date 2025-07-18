@@ -352,7 +352,7 @@ function ItemDetailPage() {
                           {claim.claimedBy?.name || 'Anonymous'}
                         </span>
                         <span className="text-sm text-gray-600 ml-2">
-                          {formatDate(claim.claimDate)}
+                          {formatDate(claim.createdAt)}
                         </span>
                       </div>
                       <span className={`badge ${

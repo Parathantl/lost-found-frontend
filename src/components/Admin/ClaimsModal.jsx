@@ -1,7 +1,7 @@
 // src/components/Admin/ClaimsModal.js
 import React, { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { adminAPI } from '../../services/api';
+import { itemsAPI } from '../../services/api';
 import toast from 'react-hot-toast';
 import { 
   X, 
@@ -14,7 +14,9 @@ import {
   AlertCircle,
   Clock,
   Download,
-  Eye
+  Eye,
+  CheckCircle,
+  XCircle
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -26,11 +28,29 @@ function ClaimsModal({ item, isOpen, onClose }) {
 
   const updateClaimMutation = useMutation({
     mutationFn: ({ itemId, claimId, status, notes }) => 
-      adminAPI.updateClaimStatus(itemId, claimId, { status, notes }),
+      itemsAPI.updateClaimStatus(itemId, claimId, { status, notes }),
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['adminItems'] });
-      toast.success(`Claim ${variables.status} successfully`);
+      queryClient.invalidateQueries({ queryKey: ['itemClaims', item._id] });
+      
+      const statusText = variables.status === 'approved' ? 'approved' : 'rejected';
+      toast.success(`Claim ${statusText} successfully`);
+      
+      // If claim was approved, show additional success message
+      if (variables.status === 'approved') {
+        toast.success('Item status updated to "claimed"', { duration: 4000 });
+      }
+      
       setActionLoading(false);
+      
+      // Update local state to reflect changes
+      if (selectedClaim && selectedClaim._id === variables.claimId) {
+        setSelectedClaim(prev => ({
+          ...prev,
+          status: variables.status,
+          notes: variables.notes
+        }));
+      }
     },
     onError: (error) => {
       toast.error(error?.response?.data?.message || 'Failed to update claim');
@@ -40,9 +60,10 @@ function ClaimsModal({ item, isOpen, onClose }) {
 
   const markReturnedMutation = useMutation({
     mutationFn: ({ itemId, claimId, returnNotes }) => 
-      adminAPI.markItemReturned(itemId, { claimId, returnNotes }),
+      itemsAPI.markItemReturned(itemId, { claimId, returnNotes }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['adminItems'] });
+      queryClient.invalidateQueries({ queryKey: ['itemClaims', item._id] });
       toast.success('Item marked as returned successfully');
       setActionLoading(false);
       onClose();
@@ -57,22 +78,39 @@ function ClaimsModal({ item, isOpen, onClose }) {
     setActionLoading(true);
     
     if (action === 'approve') {
-      updateClaimMutation.mutate({
-        itemId: item._id,
-        claimId: claim._id,
-        status: 'approved',
-        notes: 'Claim approved by admin'
-      });
+      // Show confirmation dialog for approval
+      const confirmApprove = window.confirm(
+        `Are you sure you want to approve this claim?\n\n` +
+        `This will:\n` +
+        `• Approve the claim for ${claim.claimedBy?.name}\n` +
+        `• Change item status to "claimed"\n` +
+        `• Automatically reject other pending claims\n\n` +
+        `This action cannot be undone.`
+      );
+      
+      if (confirmApprove) {
+        updateClaimMutation.mutate({
+          itemId: item._id,
+          claimId: claim._id,
+          status: 'approved',
+          notes: 'Claim approved by admin'
+        });
+      } else {
+        setActionLoading(false);
+      }
     } else if (action === 'reject') {
       const reason = prompt('Please provide a reason for rejection:');
-      if (reason) {
+      if (reason && reason.trim()) {
         updateClaimMutation.mutate({
           itemId: item._id,
           claimId: claim._id,
           status: 'rejected',
-          notes: reason
+          notes: reason.trim()
         });
       } else {
+        if (reason === '') {
+          toast.error('Rejection reason is required');
+        }
         setActionLoading(false);
       }
     } else if (action === 'return') {
@@ -87,26 +125,106 @@ function ClaimsModal({ item, isOpen, onClose }) {
 
   const getStatusBadge = (status) => {
     const badges = {
-      pending: { class: 'bg-yellow-100 text-yellow-800', icon: Clock },
-      approved: { class: 'bg-green-100 text-green-800', icon: Check },
-      rejected: { class: 'bg-red-100 text-red-800', icon: X },
+      pending: { class: 'bg-yellow-100 text-yellow-800 border-yellow-200', icon: Clock },
+      approved: { class: 'bg-green-100 text-green-800 border-green-200', icon: CheckCircle },
+      rejected: { class: 'bg-red-100 text-red-800 border-red-200', icon: XCircle },
     };
     return badges[status] || badges.pending;
   };
 
+  const getItemStatusBadge = (status) => {
+    const badges = {
+      active: { class: 'bg-blue-100 text-blue-800', text: 'Active' },
+      claimed: { class: 'bg-green-100 text-green-800', text: 'Claimed' },
+      returned: { class: 'bg-gray-100 text-gray-800', text: 'Returned' },
+      expired: { class: 'bg-red-100 text-red-800', text: 'Expired' },
+    };
+    return badges[status] || badges.active;
+  };
+
   const downloadDocument = (doc) => {
-    // Create a download link for the document
-    const link = document.createElement('a');
-    link.href = `data:${doc.type};base64,${doc.data}`;
-    link.download = doc.name;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    try {
+      // Create a download link for the document
+      const link = document.createElement('a');
+      link.href = `data:${doc.type};base64,${doc.data}`;
+      link.download = doc.name;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast.success('Document downloaded successfully');
+    } catch (error) {
+      console.error('Error downloading document:', error);
+      toast.error('Failed to download document');
+    }
+  };
+
+  // Helper function to render claim cards
+  const renderClaimCard = (claim) => {
+    const statusBadge = getStatusBadge(claim.status);
+    const StatusIcon = statusBadge.icon;
+    
+    return (
+      <div
+        key={claim._id}
+        onClick={() => setSelectedClaim(claim)}
+        className={`p-4 border rounded-lg cursor-pointer transition-colors hover:bg-gray-50 ${
+          selectedClaim?._id === claim._id ? 'border-primary-500 bg-primary-50' : 'border-gray-200'
+        }`}
+      >
+        <div className="flex items-start justify-between mb-2">
+          <div className="flex items-center space-x-2">
+            <User className="w-4 h-4 text-gray-400" />
+            <span className="font-medium text-gray-900">
+              {claim.claimedBy?.name || 'Unknown User'}
+            </span>
+          </div>
+          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${statusBadge.class}`}>
+            <StatusIcon className="w-3 h-3 mr-1" />
+            {claim.status}
+          </span>
+        </div>
+        
+        <div className="text-sm text-gray-600 space-y-1">
+          <div className="flex items-center">
+            <Mail className="w-3 h-3 mr-2" />
+            {claim.claimedBy?.email || 'No email'}
+          </div>
+          <div className="flex items-center">
+            <Phone className="w-3 h-3 mr-2" />
+            {claim.claimedBy?.phone || 'No phone'}
+          </div>
+          <div className="flex items-center">
+            <Calendar className="w-3 h-3 mr-2" />
+            {formatDistanceToNow(new Date(claim.createdAt), { addSuffix: true })}
+          </div>
+        </div>
+        
+        {claim.verificationDocuments?.length > 0 && (
+          <div className="mt-2">
+            <span className="text-xs text-gray-500">
+              {claim.verificationDocuments.length} document{claim.verificationDocuments.length !== 1 ? 's' : ''}
+            </span>
+          </div>
+        )}
+        
+        {claim.notes && (
+          <div className="mt-2">
+            <p className="text-xs text-gray-500 truncate">
+              {claim.notes}
+            </p>
+          </div>
+        )}
+      </div>
+    );
   };
 
   if (!isOpen || !item) return null;
 
   const claims = item.claims || [];
+  const approvedClaim = claims.find(claim => claim.status === 'approved');
+  const pendingClaims = claims.filter(claim => claim.status === 'pending');
+  const rejectedClaims = claims.filter(claim => claim.status === 'rejected');
+  const itemStatusBadge = getItemStatusBadge(item.status);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -117,9 +235,14 @@ function ClaimsModal({ item, isOpen, onClose }) {
             <h2 className="text-xl font-semibold text-gray-900">
               Claims for "{item.title}"
             </h2>
-            <p className="text-sm text-gray-600 mt-1">
-              {claims.length} claim{claims.length !== 1 ? 's' : ''} submitted
-            </p>
+            <div className="flex items-center gap-4 mt-2">
+              <p className="text-sm text-gray-600">
+                {claims.length} claim{claims.length !== 1 ? 's' : ''} submitted
+              </p>
+              <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${itemStatusBadge.class}`}>
+                {itemStatusBadge.text}
+              </span>
+            </div>
           </div>
           <button
             onClick={onClose}
@@ -143,56 +266,42 @@ function ClaimsModal({ item, isOpen, onClose }) {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {claims.map((claim) => {
-                    const statusBadge = getStatusBadge(claim.status);
-                    const StatusIcon = statusBadge.icon;
-                    
-                    return (
-                      <div
-                        key={claim._id}
-                        onClick={() => setSelectedClaim(claim)}
-                        className={`p-4 border rounded-lg cursor-pointer transition-colors hover:bg-gray-50 ${
-                          selectedClaim?._id === claim._id ? 'border-primary-500 bg-primary-50' : 'border-gray-200'
-                        }`}
-                      >
-                        <div className="flex items-start justify-between mb-2">
-                          <div className="flex items-center space-x-2">
-                            <User className="w-4 h-4 text-gray-400" />
-                            <span className="font-medium text-gray-900">
-                              {claim.claimedBy?.name || 'Unknown User'}
-                            </span>
-                          </div>
-                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusBadge.class}`}>
-                            <StatusIcon className="w-3 h-3 mr-1" />
-                            {claim.status}
-                          </span>
-                        </div>
-                        
-                        <div className="text-sm text-gray-600 space-y-1">
-                          <div className="flex items-center">
-                            <Mail className="w-3 h-3 mr-2" />
-                            {claim.claimedBy?.email || 'No email'}
-                          </div>
-                          <div className="flex items-center">
-                            <Phone className="w-3 h-3 mr-2" />
-                            {claim.claimedBy?.phone || 'No phone'}
-                          </div>
-                          <div className="flex items-center">
-                            <Calendar className="w-3 h-3 mr-2" />
-                            {formatDistanceToNow(new Date(claim.createdAt), { addSuffix: true })}
-                          </div>
-                        </div>
-                        
-                        {claim.verificationDocuments?.length > 0 && (
-                          <div className="mt-2">
-                            <span className="text-xs text-gray-500">
-                              {claim.verificationDocuments.length} document{claim.verificationDocuments.length !== 1 ? 's' : ''}
-                            </span>
-                          </div>
-                        )}
+                  {/* Show approved claim first */}
+                  {approvedClaim && (
+                    <div className="mb-4">
+                      <h4 className="text-sm font-medium text-green-700 mb-2 flex items-center">
+                        <CheckCircle className="w-4 h-4 mr-1" />
+                        Approved Claim
+                      </h4>
+                      {renderClaimCard(approvedClaim)}
+                    </div>
+                  )}
+                  
+                  {/* Show pending claims */}
+                  {pendingClaims.length > 0 && (
+                    <div className="mb-4">
+                      <h4 className="text-sm font-medium text-yellow-700 mb-2 flex items-center">
+                        <Clock className="w-4 h-4 mr-1" />
+                        Pending Claims ({pendingClaims.length})
+                      </h4>
+                      <div className="space-y-2">
+                        {pendingClaims.map(claim => renderClaimCard(claim))}
                       </div>
-                    );
-                  })}
+                    </div>
+                  )}
+                  
+                  {/* Show rejected claims */}
+                  {rejectedClaims.length > 0 && (
+                    <div>
+                      <h4 className="text-sm font-medium text-red-700 mb-2 flex items-center">
+                        <XCircle className="w-4 h-4 mr-1" />
+                        Rejected Claims ({rejectedClaims.length})
+                      </h4>
+                      <div className="space-y-2">
+                        {rejectedClaims.map(claim => renderClaimCard(claim))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -210,15 +319,15 @@ function ClaimsModal({ item, isOpen, onClose }) {
                         <button
                           onClick={() => handleClaimAction(selectedClaim, 'approve')}
                           disabled={actionLoading}
-                          className="btn-success btn-sm"
+                          className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm font-medium disabled:opacity-50 flex items-center"
                         >
                           <Check className="w-4 h-4 mr-1" />
-                          Approve
+                          {actionLoading ? 'Processing...' : 'Approve'}
                         </button>
                         <button
                           onClick={() => handleClaimAction(selectedClaim, 'reject')}
                           disabled={actionLoading}
-                          className="btn-danger btn-sm"
+                          className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm font-medium disabled:opacity-50 flex items-center"
                         >
                           <X className="w-4 h-4 mr-1" />
                           Reject
@@ -229,9 +338,9 @@ function ClaimsModal({ item, isOpen, onClose }) {
                       <button
                         onClick={() => handleClaimAction(selectedClaim, 'return')}
                         disabled={actionLoading}
-                        className="btn-primary btn-sm"
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm font-medium disabled:opacity-50"
                       >
-                        Mark as Returned
+                        {actionLoading ? 'Processing...' : 'Mark as Returned'}
                       </button>
                     )}
                   </div>
@@ -278,6 +387,28 @@ function ClaimsModal({ item, isOpen, onClose }) {
                         Submitted {formatDistanceToNow(new Date(selectedClaim.createdAt), { addSuffix: true })}
                       </span>
                     </div>
+                  </div>
+                </div>
+
+                {/* Claim Status */}
+                <div className="mb-6">
+                  <h4 className="font-medium text-gray-900 mb-2">Claim Status</h4>
+                  <div className="flex items-center">
+                    {(() => {
+                      const statusBadge = getStatusBadge(selectedClaim.status);
+                      const StatusIcon = statusBadge.icon;
+                      return (
+                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${statusBadge.class}`}>
+                          <StatusIcon className="w-4 h-4 mr-1" />
+                          {selectedClaim.status.charAt(0).toUpperCase() + selectedClaim.status.slice(1)}
+                        </span>
+                      );
+                    })()}
+                    {selectedClaim.status === 'approved' && (
+                      <span className="ml-2 text-sm text-green-600">
+                        ✓ This claim has been approved
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -359,6 +490,14 @@ function ClaimsModal({ item, isOpen, onClose }) {
                         }`}></div>
                         <span className="text-gray-600">
                           Status updated to "{selectedClaim.status}" on {new Date(selectedClaim.updatedAt).toLocaleString()}
+                        </span>
+                      </div>
+                    )}
+                    {selectedClaim.status === 'approved' && item.status === 'returned' && (
+                      <div className="flex items-center text-sm">
+                        <div className="w-2 h-2 bg-gray-500 rounded-full mr-3"></div>
+                        <span className="text-gray-600">
+                          Item marked as returned
                         </span>
                       </div>
                     )}
