@@ -437,7 +437,7 @@ function ItemDetailPage() {
                 </div>
               </div>
               
-              {(isAuthenticated && (canClaim || isOwner)) && (
+              {/* {(isAuthenticated && (canClaim || isOwner)) && (
                 <>
                   <div className="flex items-center">
                     <Mail className="w-5 h-5 text-gray-400 mr-3" />
@@ -454,7 +454,7 @@ function ItemDetailPage() {
                     </div>
                   </div>
                 </>
-              )}
+              )} */}
               
               {!isAuthenticated && (
                 <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">

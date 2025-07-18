@@ -220,7 +220,7 @@ function ClaimForm({ item, onClose, onSuccess }) {
             <ul className="text-sm text-blue-700 space-y-1">
               <li>• Your claim will be reviewed by staff</li>
               <li>• You may be contacted for additional verification</li>
-              <li>• Approved claims will be notified via email</li>
+              {/* <li>• Approved claims will be notified via email</li> */}
               <li>• Meet the item owner in a safe public location</li>
             </ul>
           </div>

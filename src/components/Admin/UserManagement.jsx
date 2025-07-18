@@ -118,10 +118,10 @@ function UserManagement() {
             Manage user accounts and permissions
           </p>
         </div>
-        <button className="btn-primary">
+        {/* <button className="btn-primary">
           <UserPlus className="w-4 h-4 mr-2" />
           Add New User
-        </button>
+        </button> */}
       </div>
 
       {/* Filters */}

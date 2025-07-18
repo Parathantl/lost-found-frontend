@@ -165,7 +165,7 @@ const PoliceReportModal = ({ isOpen, onClose, item }) => {
             <h4 className="text-sm font-medium text-blue-800 mb-2">What happens next?</h4>
             <ul className="text-sm text-blue-700 space-y-1">
               <li>• Item status will be updated to "Police Custody"</li>
-              <li>• Reporter will receive an email notification</li>
+              {/* <li>• Reporter will receive an email notification</li> */}
               <li>• Police report number will be recorded</li>
               <li>• Item will be flagged for police management</li>
             </ul>
