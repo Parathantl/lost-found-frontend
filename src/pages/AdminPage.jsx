@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import AdminDashboard from '../components/Admin/AdminDashboard';
 import UserManagement from '../components/Admin/UserManagement';
 import ItemManagement from '../components/Admin/ItemManagement';
-import SystemSettings from '../components/Admin/SystemSettings';
+// import SystemSettings from '../components/Admin/SystemSettings';
 import Analytics from '../components/Admin/Analytics';
 import { 
   BarChart3, 
@@ -28,7 +28,7 @@ function AdminPage() {
     { path: '/admin/analytics', label: 'Analytics', icon: BarChart3 },
     { path: '/admin/users', label: 'User Management', icon: Users },
     { path: '/admin/items', label: 'Item Management', icon: Package },
-    { path: '/admin/settings', label: 'System Settings', icon: Settings },
+    // { path: '/admin/settings', label: 'System Settings', icon: Settings },
   ];
 
   const isActive = (path, exact = false) => {
@@ -139,7 +139,7 @@ function AdminPage() {
               <Route path="/analytics" element={<Analytics />} />
               <Route path="/users" element={<UserManagement />} />
               <Route path="/items" element={<ItemManagement />} />
-              <Route path="/settings" element={<SystemSettings />} />
+              {/* <Route path="/settings" element={<SystemSettings />} /> */}
             </Routes>
           </div>
         </main>

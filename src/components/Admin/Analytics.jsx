@@ -1,7 +1,7 @@
 // src/components/Admin/Analytics.js
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { dashboardAPI, adminAPI } from '../../services/api';
+import { dashboardAPI } from '../../services/api';
 import LoadingSpinner from '../UI/LoadingSpinner';
 import StatsCard from '../Dashboard/StatsCard';
 import { 
@@ -18,7 +18,7 @@ import {
 
 function Analytics() {
   const [timeRange, setTimeRange] = useState('30');
-  const [exportFormat, setExportFormat] = useState('json');
+  // const [exportFormat, setExportFormat] = useState('json');
 
   const { data: statsData, isLoading: statsLoading } = useQuery({
     queryKey: ['dashboardStats', timeRange],
@@ -34,33 +34,33 @@ function Analytics() {
   const stats = statsData?.data?.data || {};
   const locationStats = locationData?.data?.data || [];
 
-  const handleExport = async (type) => {
-    try {
-      const response = await adminAPI.exportData(type, exportFormat);
+  // const handleExport = async (type) => {
+  //   try {
+  //     const response = await adminAPI.exportData(type, exportFormat);
       
-      if (exportFormat === 'csv') {
-        // Handle CSV download
-        const blob = new Blob([response.data], { type: 'text/csv' });
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `${type}_export_${Date.now()}.csv`;
-        link.click();
-        window.URL.revokeObjectURL(url);
-      } else {
-        // Handle JSON download
-        const blob = new Blob([JSON.stringify(response.data, null, 2)], { type: 'application/json' });
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `${type}_export_${Date.now()}.json`;
-        link.click();
-        window.URL.revokeObjectURL(url);
-      }
-    } catch (error) {
-      console.error('Export failed:', error);
-    }
-  };
+  //     if (exportFormat === 'csv') {
+  //       // Handle CSV download
+  //       const blob = new Blob([response.data], { type: 'text/csv' });
+  //       const url = window.URL.createObjectURL(blob);
+  //       const link = document.createElement('a');
+  //       link.href = url;
+  //       link.download = `${type}_export_${Date.now()}.csv`;
+  //       link.click();
+  //       window.URL.revokeObjectURL(url);
+  //     } else {
+  //       // Handle JSON download
+  //       const blob = new Blob([JSON.stringify(response.data, null, 2)], { type: 'application/json' });
+  //       const url = window.URL.createObjectURL(blob);
+  //       const link = document.createElement('a');
+  //       link.href = url;
+  //       link.download = `${type}_export_${Date.now()}.json`;
+  //       link.click();
+  //       window.URL.revokeObjectURL(url);
+  //     }
+  //   } catch (error) {
+  //     console.error('Export failed:', error);
+  //   }
+  // };
 
   if (statsLoading) {
     return (
@@ -251,7 +251,7 @@ function Analytics() {
       )}
 
       {/* Data Export */}
-      <div className="bg-white rounded-lg shadow-sm border p-6">
+      {/* <div className="bg-white rounded-lg shadow-sm border p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Data Export</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
@@ -294,7 +294,7 @@ function Analytics() {
             </div>
           </div>
         </div>
-      </div>
+      </div> */}
 
       {/* System Statistics */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

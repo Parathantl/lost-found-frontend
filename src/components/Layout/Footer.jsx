@@ -198,7 +198,7 @@ function Footer() {
       </div>
 
       {/* Newsletter Signup */}
-      <div className="border-t border-gray-800 bg-gray-800">
+      {/* <div className="border-t border-gray-800 bg-gray-800">
         <div className="container mx-auto px-4 py-8">
           <div className="max-w-2xl mx-auto text-center">
             <h3 className="text-lg font-semibold mb-2">Stay Updated</h3>
@@ -224,7 +224,7 @@ function Footer() {
             </form>
           </div>
         </div>
-      </div>
+      </div> */}
 
       {/* Bottom Bar */}
       <div className="border-t border-gray-800 bg-gray-900">

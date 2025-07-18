@@ -7,7 +7,7 @@ import LoadingSpinner from '../components/UI/LoadingSpinner';
 import ItemCard from '../components/Items/ItemCard';
 import ItemFilters from '../components/Items/ItemFilters';
 import Pagination from '../components/UI/Pagination';
-import { Search, Plus, Filter } from 'lucide-react';
+import { Search, Plus, Filter, Shield } from 'lucide-react';
 
 function ItemsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -20,6 +20,7 @@ function ItemsPage() {
     category: searchParams.get('category') || '',
     status: searchParams.get('status') || 'active',
     location: searchParams.get('location') || '',
+    handedOverToPolice: searchParams.get('handedOverToPolice') || '', // New filter
     page: parseInt(searchParams.get('page')) || 1,
     limit: 12,
     sortBy: searchParams.get('sortBy') || 'createdAt',
@@ -126,19 +127,19 @@ function ItemsPage() {
       {/* Quick Filter Tags */}
       <div className="flex flex-wrap gap-2">
         <button
-          onClick={() => handleFilterChange({ type: '', category: '', status: 'active' })}
+          onClick={() => handleFilterChange({ type: '', category: '', status: 'active', handedOverToPolice: '' })}
           className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
-            !filters.type && !filters.category
+            !filters.type && !filters.category && filters.status === 'active' && !filters.handedOverToPolice
               ? 'bg-primary-600 text-white'
               : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
           }`}
         >
-          All Items
+          All Active Items
         </button>
         <button
-          onClick={() => handleFilterChange({ type: 'lost' })}
+          onClick={() => handleFilterChange({ type: 'lost', status: 'active', handedOverToPolice: '' })}
           className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
-            filters.type === 'lost'
+            filters.type === 'lost' && filters.status === 'active' && !filters.handedOverToPolice
               ? 'bg-red-600 text-white'
               : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
           }`}
@@ -146,9 +147,9 @@ function ItemsPage() {
           Lost Items
         </button>
         <button
-          onClick={() => handleFilterChange({ type: 'found' })}
+          onClick={() => handleFilterChange({ type: 'found', status: 'active', handedOverToPolice: '' })}
           className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
-            filters.type === 'found'
+            filters.type === 'found' && filters.status === 'active' && !filters.handedOverToPolice
               ? 'bg-green-600 text-white'
               : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
           }`}
@@ -156,20 +157,40 @@ function ItemsPage() {
           Found Items
         </button>
         <button
-          onClick={() => handleFilterChange({ category: 'electronics' })}
+          onClick={() => handleFilterChange({ status: 'returned', handedOverToPolice: '' })}
           className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
-            filters.category === 'electronics'
+            filters.status === 'returned' && !filters.handedOverToPolice
               ? 'bg-blue-600 text-white'
+              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+          }`}
+        >
+          Returned Items
+        </button>
+        <button
+          onClick={() => handleFilterChange({ handedOverToPolice: 'true', type: 'found', status: '' })}
+          className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+            filters.handedOverToPolice === 'true'
+              ? 'bg-orange-600 text-white'
+              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+          }`}
+        >
+          Police Handed Over
+        </button>
+        <button
+          onClick={() => handleFilterChange({ category: 'electronics', status: 'active' })}
+          className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+            filters.category === 'electronics' && filters.status === 'active'
+              ? 'bg-purple-600 text-white'
               : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
           }`}
         >
           Electronics
         </button>
         <button
-          onClick={() => handleFilterChange({ category: 'accessories' })}
+          onClick={() => handleFilterChange({ category: 'accessories', status: 'active' })}
           className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
-            filters.category === 'accessories'
-              ? 'bg-purple-600 text-white'
+            filters.category === 'accessories' && filters.status === 'active'
+              ? 'bg-indigo-600 text-white'
               : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
           }`}
         >
@@ -202,6 +223,7 @@ function ItemsPage() {
                   type: '',
                   category: '',
                   location: '',
+                  handedOverToPolice: '',
                   page: 1,
                 });
               }}
@@ -240,6 +262,9 @@ function ItemsPage() {
       {items.length > 0 && (
         <div className="text-center text-gray-600">
           Showing {((pagination.current - 1) * filters.limit) + 1}-{Math.min(pagination.current * filters.limit, pagination.total)} of {pagination.total} items
+          {filters.handedOverToPolice === 'true' && (
+            <span className="text-orange-600 font-medium"> (handed over to police)</span>
+          )}
         </div>
       )}
     </div>

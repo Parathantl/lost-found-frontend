@@ -1,5 +1,6 @@
 // src/components/Items/ItemFilters.js
 import React from 'react';
+import { Shield } from 'lucide-react';
 
 function ItemFilters({ filters, onChange }) {
   const categories = [
@@ -22,6 +23,12 @@ function ItemFilters({ filters, onChange }) {
     { value: 'expired', label: 'Expired' },
   ];
 
+  const policeHandoverOptions = [
+    { value: '', label: 'All Items' },
+    { value: 'true', label: 'Handed Over to Police' },
+    { value: 'false', label: 'Not Handed Over' },
+  ];
+
   const sortOptions = [
     { value: 'createdAt', label: 'Date Reported' },
     { value: 'date', label: 'Date Lost/Found' },
@@ -34,7 +41,7 @@ function ItemFilters({ filters, onChange }) {
   };
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 pt-4 border-t border-gray-200">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-4 border-t border-gray-200">
       {/* Type Filter */}
       <div>
         <label className="form-label">Type</label>
@@ -93,6 +100,30 @@ function ItemFilters({ filters, onChange }) {
         />
       </div>
 
+      {/* Police Handover Filter */}
+      <div>
+        <label className="form-label flex items-center">
+          <Shield className="w-4 h-4 mr-1 text-orange-600" />
+          Police Handover
+        </label>
+        <select
+          value={filters.handedOverToPolice || ''}
+          onChange={(e) => handleChange('handedOverToPolice', e.target.value)}
+          className="form-input"
+        >
+          {policeHandoverOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        {filters.handedOverToPolice === 'true' && (
+          <p className="text-xs text-orange-600 mt-1">
+            Showing items handed over to police authorities
+          </p>
+        )}
+      </div>
+
       {/* Sort Options */}
       <div>
         <label className="form-label">Sort By</label>
@@ -123,7 +154,7 @@ function ItemFilters({ filters, onChange }) {
       </div>
 
       {/* Clear Filters */}
-      <div className="md:col-span-2 lg:col-span-2 flex items-end">
+      <div className="md:col-span-2 lg:col-span-1 flex items-end">
         <button
           type="button"
           onClick={() => onChange({
@@ -131,6 +162,7 @@ function ItemFilters({ filters, onChange }) {
             category: '',
             status: 'active',
             location: '',
+            handedOverToPolice: '',
             sortBy: 'createdAt',
             sortOrder: 'desc',
             page: 1,

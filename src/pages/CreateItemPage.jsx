@@ -28,7 +28,20 @@ function CreateItemPage() {
   const queryClient = useQueryClient();
   const [imageFiles, setImageFiles] = useState([]);
   const [previewUrls, setPreviewUrls] = useState([]);
+  const [uploadedImageUrls, setUploadedImageUrls] = useState([]);
   const [showMatchNotice, setShowMatchNotice] = useState(false);
+  const [uploadingImages, setUploadingImages] = useState([]);
+
+  // Cloudinary configuration - replace with your actual values
+  const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_REACT_APP_CLOUDINARY_CLOUD_NAME || 'your-cloud-name';
+  const CLOUDINARY_UPLOAD_PRESET = import.meta.env.VITE_REACT_APP_CLOUDINARY_UPLOAD_PRESET || 'ml_default';
+
+  // Validate Cloudinary configuration
+  React.useEffect(() => {
+    if (CLOUDINARY_CLOUD_NAME === 'your-cloud-name') {
+      console.warn('Please set REACT_APP_CLOUDINARY_CLOUD_NAME in your .env file');
+    }
+  }, []);
 
   const {
     register,
@@ -80,12 +93,45 @@ function CreateItemPage() {
     onError: (error) => {
       toast.error(error.response?.data?.message || 'Failed to create item');
     },
-  });  
+  });
 
-  const handleImageChange = (e) => {
+  // Function to upload single image to Cloudinary
+  const uploadImageToCloudinary = async (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+    formData.append('cloud_name', CLOUDINARY_CLOUD_NAME);
+
+    try {
+      const response = await fetch(
+        `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
+        {
+          method: 'POST',
+          body: formData,
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.error('Cloudinary upload error:', data);
+        throw new Error(data.error?.message || 'Failed to upload image');
+      }
+
+      return data.secure_url;
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      throw error;
+    }
+  };
+
+  const handleImageChange = async (e) => {
     const files = Array.from(e.target.files);
-    if (files.length > 5) {
-      toast.error('You can upload maximum 5 images');
+    const currentImageCount = previewUrls.length;
+    
+    // Check if adding new files would exceed the limit
+    if (currentImageCount + files.length > 5) {
+      toast.error(`You can only upload ${5 - currentImageCount} more image(s). Maximum 5 images allowed.`);
       return;
     }
 
@@ -96,51 +142,103 @@ function CreateItemPage() {
       return;
     }
 
-    setImageFiles(files);
-    
-    // Create preview URLs
-    const urls = files.map(file => URL.createObjectURL(file));
-    setPreviewUrls(urls);
+    // Validate file types
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    const invalidFiles = files.filter(file => !validTypes.includes(file.type));
+    if (invalidFiles.length > 0) {
+      toast.error('Please upload only image files (JPEG, PNG, GIF, WebP)');
+      return;
+    }
+
+    // Create preview URLs and add to existing arrays
+    const newPreviewUrls = files.map(file => URL.createObjectURL(file));
+    setPreviewUrls(prev => [...prev, ...newPreviewUrls]);
+    setImageFiles(prev => [...prev, ...files]);
+
+    // Initialize uploading state for new images
+    const newUploadingStates = files.map(() => true);
+    setUploadingImages(prev => [...prev, ...newUploadingStates]);
+
+    // Upload each image immediately
+    try {
+      const uploadPromises = files.map(async (file, index) => {
+        try {
+          const uploadedUrl = await uploadImageToCloudinary(file);
+          
+          // Update uploading state for this specific image
+          setUploadingImages(prev => {
+            const newState = [...prev];
+            newState[currentImageCount + index] = false;
+            return newState;
+          });
+
+          return uploadedUrl;
+        } catch (error) {
+          console.error(`Error uploading image ${index + 1}:`, error);
+          
+          // Update uploading state for failed upload
+          setUploadingImages(prev => {
+            const newState = [...prev];
+            newState[currentImageCount + index] = false;
+            return newState;
+          });
+
+          throw error;
+        }
+      });
+
+      const uploadedUrls = await Promise.all(uploadPromises);
+      setUploadedImageUrls(prev => [...prev, ...uploadedUrls]);
+      
+      toast.success(`${files.length} image(s) uploaded successfully!`);
+    } catch (error) {
+      toast.error(`Failed to upload some images: ${error.message}`);
+    }
+
+    // Clear the file input to allow re-uploading the same files
+    e.target.value = '';
   };
 
   const removeImage = (index) => {
+    // Remove from all arrays
     const newFiles = imageFiles.filter((_, i) => i !== index);
     const newUrls = previewUrls.filter((_, i) => i !== index);
+    const newUploadedUrls = uploadedImageUrls.filter((_, i) => i !== index);
+    const newUploadingStates = uploadingImages.filter((_, i) => i !== index);
     
     // Revoke the URL to prevent memory leaks
     URL.revokeObjectURL(previewUrls[index]);
     
     setImageFiles(newFiles);
     setPreviewUrls(newUrls);
+    setUploadedImageUrls(newUploadedUrls);
+    setUploadingImages(newUploadingStates);
   };
 
   const onSubmit = async (data) => {
     try {
-      // Show loading toast
-      const loadingToast = toast.loading('Creating item and searching for matches...');
+      // Check if any images are still uploading
+      const hasUploadingImages = uploadingImages.some(isUploading => isUploading);
+      if (hasUploadingImages) {
+        toast.error('Please wait for all images to finish uploading before submitting.');
+        return;
+      }
 
-      // Convert images to base64 (in production, upload to cloud storage)
-      const imageUrls = await Promise.all(
-        imageFiles.map(async (file) => {
-          return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result);
-            reader.onerror = reject;
-            reader.readAsDataURL(file);
-          });
-        })
-      );
+      // Show loading toast for item creation
+      const creatingToast = toast.loading('Creating item and searching for matches...');
 
       const itemData = {
         ...data,
-        images: imageUrls,
+        images: uploadedImageUrls, // Use the already uploaded Cloudinary URLs
         date: new Date(data.date).toISOString(),
       };
 
       await createItemMutation.mutateAsync(itemData);
-      toast.dismiss(loadingToast);
+      toast.dismiss(creatingToast);
+      
     } catch (error) {
-      toast.error('Failed to process images: ' + error.message);
+      console.error('Error creating item:', error);
+      toast.error('Failed to create item: ' + error.message);
     }
   };
 
@@ -154,6 +252,8 @@ function CreateItemPage() {
     { value: 'books', label: 'Books', icon: '📚' },
     { value: 'other', label: 'Other', icon: '📦' },
   ];
+
+  const isSubmitDisabled = createItemMutation.isLoading || uploadingImages.some(isUploading => isUploading);
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -409,14 +509,21 @@ function CreateItemPage() {
           
           <div className="space-y-4">
             <div>
-              <label className="block w-full p-6 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-gray-400 transition-colors">
+              <label className={`block w-full p-6 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${
+                previewUrls.length >= 5 
+                  ? 'border-gray-200 bg-gray-50 cursor-not-allowed' 
+                  : 'border-gray-300 hover:border-gray-400'
+              }`}>
                 <div className="text-center">
                   <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
                   <p className="text-gray-600">
-                    Click to upload images or drag and drop
+                    {previewUrls.length >= 5 
+                      ? 'Maximum 5 images reached' 
+                      : 'Click to upload images or drag and drop'
+                    }
                   </p>
                   <p className="text-sm text-gray-500 mt-1">
-                    PNG, JPG up to 5 images (10MB each)
+                    PNG, JPG, GIF, WebP ({5 - previewUrls.length} remaining, 10MB each)
                   </p>
                 </div>
                 <input
@@ -424,6 +531,7 @@ function CreateItemPage() {
                   multiple
                   accept="image/*"
                   onChange={handleImageChange}
+                  disabled={previewUrls.length >= 5}
                   className="sr-only"
                 />
               </label>
@@ -439,15 +547,49 @@ function CreateItemPage() {
                       alt={`Preview ${index + 1}`}
                       className="w-full h-24 object-cover rounded-lg border"
                     />
+                    
+                    {/* Upload status overlay */}
+                    {uploadingImages[index] && (
+                      <div className="absolute inset-0 bg-black bg-opacity-50 rounded-lg flex items-center justify-center">
+                        <div className="text-center">
+                          <LoadingSpinner size="small" />
+                          <p className="text-white text-xs mt-1">Uploading...</p>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Success indicator */}
+                    {!uploadingImages[index] && uploadedImageUrls[index] && (
+                      <div className="absolute top-1 left-1 bg-green-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">
+                        ✓
+                      </div>
+                    )}
+                    
+                    {/* Remove button */}
                     <button
                       type="button"
                       onClick={() => removeImage(index)}
-                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm hover:bg-red-600"
+                      disabled={uploadingImages[index]}
+                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm hover:bg-red-600 disabled:opacity-50"
                     >
                       ×
                     </button>
                   </div>
                 ))}
+              </div>
+            )}
+
+            {/* Upload Summary */}
+            {previewUrls.length > 0 && (
+              <div className="text-sm text-gray-600">
+                <p>
+                  {uploadedImageUrls.length} of {previewUrls.length} images uploaded successfully
+                  {uploadingImages.some(isUploading => isUploading) && (
+                    <span className="ml-2 text-blue-600">
+                      ({uploadingImages.filter(isUploading => isUploading).length} still uploading...)
+                    </span>
+                  )}
+                </p>
               </div>
             )}
           </div>
@@ -530,6 +672,7 @@ function CreateItemPage() {
                     You will receive notifications when potential matches are found.
                   </li>
                   <li>Our AI system will automatically search for matches based on your description.</li>
+                  <li>Images are securely stored on Cloudinary for better performance.</li>
                 </ul>
               </div>
             </div>
@@ -542,16 +685,25 @@ function CreateItemPage() {
             type="button"
             onClick={() => navigate(-1)}
             className="btn-secondary"
+            disabled={isSubmitDisabled}
           >
             Cancel
           </button>
           <button
             type="submit"
-            disabled={createItemMutation.isLoading}
+            disabled={isSubmitDisabled}
             className="btn-primary"
           >
-            {createItemMutation.isLoading ? (
-              <LoadingSpinner size="small" />
+            {uploadingImages.some(isUploading => isUploading) ? (
+              <>
+                <LoadingSpinner size="small" />
+                Uploading Images...
+              </>
+            ) : createItemMutation.isLoading ? (
+              <>
+                <LoadingSpinner size="small" />
+                Creating Item...
+              </>
             ) : (
               <>
                 <Save className="w-4 h-4 mr-2" />
