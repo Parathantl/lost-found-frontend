@@ -50,18 +50,27 @@ function ItemManagement() {
   const [selectedItemForHandover, setSelectedItemForHandover] = useState(null);
   const [policeModalOpen, setPoliceModalOpen] = useState(false);
   const [viewMode, setViewMode] = useState(isAdmin ? 'table' : 'cards'); // Admin defaults to table, Staff to cards
+  const [activeTab, setActiveTab] = useState('active'); // New tab state: 'active' or 'returned'
   // Staff is always restricted to location mode
 
   const queryClient = useQueryClient();
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['items', filters, user?.role],
+    queryKey: ['items', filters, user?.role, activeTab],
     queryFn: () => {
       let queryFilters = { ...filters };
       
       // For staff users, always enforce location filtering
       if (isStaff) {
         queryFilters.location = user?.branch || '';
+      }
+      
+      // Filter based on active tab
+      if (activeTab === 'returned') {
+        queryFilters.status = 'returned';
+      } else {
+        // For active tab, exclude returned items
+        queryFilters.excludeStatus = 'returned';
       }
       
       return itemsAPI.getItems(queryFilters);
@@ -96,6 +105,8 @@ function ItemManagement() {
   
   const handleFilterChange = (newFilters) => {
     setFilters({ ...filters, ...newFilters, page: 1 });
+    // Clear selections when filters change
+    setSelectedItems([]);
   };
 
   const handlePageChange = (page) => {
@@ -103,6 +114,12 @@ function ItemManagement() {
     if (viewMode === 'cards') {
       window.scrollTo(0, 0);
     }
+  };
+
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    setSelectedItems([]); // Clear selections when switching tabs
+    setFilters({ ...filters, page: 1 }); // Reset to first page
   };
 
   const handleSelectItem = (itemId) => {
@@ -240,8 +257,6 @@ function ItemManagement() {
         </div>
         
         <div className="flex items-center space-x-3">
-          {/* View Mode Toggle for Staff - removed Browse All option */}
-          
           {/* Display Mode Toggle */}
           <div className="flex bg-gray-100 rounded-lg p-1">
             <button
@@ -266,8 +281,8 @@ function ItemManagement() {
             </button>
           </div>
           
-          {/* Bulk Actions for both Admin and Staff */}
-          {selectedItems.length > 0 && (
+          {/* Bulk Actions - Only show for active tab */}
+          {selectedItems.length > 0 && activeTab === 'active' && (
             <div className="flex items-center space-x-2">
               <span className="text-sm text-gray-600">
                 {selectedItems.length} selected
@@ -292,7 +307,61 @@ function ItemManagement() {
               </button>
             </div>
           )}
+          
+          {/* Show selection count for returned tab but no actions */}
+          {selectedItems.length > 0 && activeTab === 'returned' && (
+            <div className="flex items-center space-x-2">
+              <span className="text-sm text-gray-600">
+                {selectedItems.length} returned item{selectedItems.length !== 1 ? 's' : ''} selected
+              </span>
+              <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                No actions available for returned items
+              </span>
+            </div>
+          )}
         </div>
+      </div>
+
+      {/* Tab Navigation */}
+      <div className="border-b border-gray-200">
+        <nav className="-mb-px flex space-x-8">
+          <button
+            onClick={() => handleTabChange('active')}
+            className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
+              activeTab === 'active'
+                ? 'border-primary-500 text-primary-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            <div className="flex items-center space-x-2">
+              <Package className="w-4 h-4" />
+              <span>Active Items</span>
+              {locationStats.total - (locationStats.returned || 0) > 0 && (
+                <span className="bg-primary-100 text-primary-800 text-xs font-medium px-2 py-0.5 rounded-full">
+                  {locationStats.total - (locationStats.returned || 0)}
+                </span>
+              )}
+            </div>
+          </button>
+          <button
+            onClick={() => handleTabChange('returned')}
+            className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
+              activeTab === 'returned'
+                ? 'border-green-500 text-green-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            <div className="flex items-center space-x-2">
+              <TrendingUp className="w-4 h-4" />
+              <span>Returned Items</span>
+              {locationStats.returned > 0 && (
+                <span className="bg-green-100 text-green-800 text-xs font-medium px-2 py-0.5 rounded-full">
+                  {locationStats.returned}
+                </span>
+              )}
+            </div>
+          </button>
+        </nav>
       </div>
 
       {/* Statistics for Staff */}
@@ -302,8 +371,12 @@ function ItemManagement() {
             <div className="flex items-center">
               <Package className="w-8 h-8 text-primary-600" />
               <div className="ml-3">
-                <p className="text-2xl font-bold text-gray-900">{locationStats.total}</p>
-                <p className="text-sm text-gray-600">Total Items</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {activeTab === 'active' ? locationStats.total - (locationStats.returned || 0) : locationStats.returned || 0}
+                </p>
+                <p className="text-sm text-gray-600">
+                  {activeTab === 'active' ? 'Active Items' : 'Returned Items'}
+                </p>
               </div>
             </div>
           </div>
@@ -330,7 +403,7 @@ function ItemManagement() {
               <Clock className="w-8 h-8 text-yellow-600" />
               <div className="ml-3">
                 <p className="text-2xl font-bold text-gray-900">{locationStats.active || 0}</p>
-                <p className="text-sm text-gray-600">Active Items</p>
+                <p className="text-sm text-gray-600">Active Status</p>
               </div>
             </div>
           </div>
@@ -421,61 +494,76 @@ function ItemManagement() {
         )}
       </div>
 
-      {/* Removed Staff Browse Mode Info since Browse All is no longer available */}
+      {/* Quick Filter Tags - Only show for active tab */}
+      {activeTab === 'active' && (
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => handleFilterChange({ type: '', category: '', status: 'active' })}
+            className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+              !filters.type && !filters.category && filters.status === 'active'
+                ? 'bg-primary-600 text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            Active Items
+          </button>
+          <button
+            onClick={() => handleFilterChange({ type: 'lost', status: 'active' })}
+            className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+              filters.type === 'lost' && filters.status === 'active'
+                ? 'bg-red-600 text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            Active Lost
+          </button>
+          <button
+            onClick={() => handleFilterChange({ type: 'found', status: 'active' })}
+            className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+              filters.type === 'found' && filters.status === 'active'
+                ? 'bg-green-600 text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            Active Found
+          </button>
+          <button
+            onClick={() => handleFilterChange({ status: 'claimed' })}
+            className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+              filters.status === 'claimed'
+                ? 'bg-yellow-600 text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            Claimed Items
+          </button>
+          <button
+            onClick={() => handleFilterChange({ status: 'expired' })}
+            className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+              filters.status === 'expired'
+                ? 'bg-gray-600 text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            Expired Items
+          </button>
+        </div>
+      )}
 
-      {/* Quick Filter Tags */}
-      <div className="flex flex-wrap gap-2">
-        <button
-          onClick={() => handleFilterChange({ type: '', category: '', status: 'active' })}
-          className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
-            !filters.type && !filters.category && filters.status === 'active'
-              ? 'bg-primary-600 text-white'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-          }`}
-        >
-          Active Items
-        </button>
-        <button
-          onClick={() => handleFilterChange({ type: 'lost', status: 'active' })}
-          className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
-            filters.type === 'lost' && filters.status === 'active'
-              ? 'bg-red-600 text-white'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-          }`}
-        >
-          Active Lost
-        </button>
-        <button
-          onClick={() => handleFilterChange({ type: 'found', status: 'active' })}
-          className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
-            filters.type === 'found' && filters.status === 'active'
-              ? 'bg-green-600 text-white'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-          }`}
-        >
-          Active Found
-        </button>
-        <button
-          onClick={() => handleFilterChange({ status: 'claimed' })}
-          className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
-            filters.status === 'claimed'
-              ? 'bg-yellow-600 text-white'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-          }`}
-        >
-          Claimed Items
-        </button>
-        <button
-          onClick={() => handleFilterChange({ status: 'expired' })}
-          className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
-            filters.status === 'expired'
-              ? 'bg-gray-600 text-white'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-          }`}
-        >
-          Expired Items
-        </button>
-      </div>
+      {/* Info for returned tab */}
+      {activeTab === 'returned' && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+          <div className="flex items-center">
+            <TrendingUp className="w-5 h-5 text-green-600 mr-2" />
+            <div>
+              <h3 className="text-sm font-medium text-green-800">Returned Items</h3>
+              <p className="text-sm text-green-700">
+                These items have been successfully returned to their owners. No further actions are needed.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Content */}
       {error ? (
@@ -490,15 +578,21 @@ function ItemManagement() {
         <div className="bg-gray-50 rounded-lg p-12 text-center">
           <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-2">
-            {isStaff 
-              ? 'No items found in your location'
-              : 'No items found'
+            {activeTab === 'returned' 
+              ? (isStaff ? 'No returned items in your location' : 'No returned items found')
+              : (isStaff ? 'No items found in your location' : 'No items found')
             }
           </h3>
           <p className="text-gray-600 mb-4">
-            {isStaff
-              ? 'No items have been reported for your assigned location yet.'
-              : 'Try adjusting your search criteria or filters.'
+            {activeTab === 'returned'
+              ? (isStaff 
+                  ? 'No items have been returned in your assigned location yet.'
+                  : 'No items have been returned yet.'
+                )
+              : (isStaff
+                  ? 'No items have been reported for your assigned location yet.'
+                  : 'Try adjusting your search criteria or filters.'
+                )
             }
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
@@ -589,7 +683,8 @@ function ItemManagement() {
                               checked={selectedItems.includes(item._id)}
                               onChange={() => handleSelectItem(item._id)}
                               className="rounded border-gray-300"
-                              disabled={isStaff && item.location !== user?.branch}
+                              // FIXED: Remove the disabled condition for staff
+                              // Staff should be able to check items from their location
                             />
                           </td>
                           
@@ -708,19 +803,29 @@ function ItemManagement() {
                                   <Shield className="w-4 h-4 mr-1" />
                                   <span className="underline text-sm">Hand Over</span>
                                 </button>
-                              ) : item.status !== 'expired' && item.type === 'found' ? (
-                                <button
-                                  className="text-orange-600 hover:text-orange-800 flex items-center"
-                                  onClick={() => handleBulkUpdate({ status: 'expired' })}
-                                  title="Mark as Expired"
-                                >
-                                  <Clock className="w-4 h-4 mr-1" />
-                                  <span className="underline text-sm">Make Expire</span>
-                                </button>
                               ) : (
-                                <span className="text-gray-400 text-sm">
-                                  {item.type === 'lost' ? 'N/A for lost items' : 'Available when found & expired'}
-                                </span>
+                                // FIXED: Only show "Make Expire" for active found items (not returned or other statuses)
+                                item.status === 'active' && item.type === 'found' ? (
+                                  <button
+                                    className="text-orange-600 hover:text-orange-800 flex items-center"
+                                    onClick={() => handleBulkUpdate({ status: 'expired' })}
+                                    title="Mark as Expired"
+                                  >
+                                    <Clock className="w-4 h-4 mr-1" />
+                                    <span className="underline text-sm">Make Expire</span>
+                                  </button>
+                                ) : (
+                                  <span className="text-gray-400 text-sm">
+                                    {item.type === 'lost' 
+                                      ? 'N/A for lost items' 
+                                      : item.status === 'returned'
+                                        ? 'Item returned'
+                                        : item.status === 'claimed'
+                                          ? 'Item claimed'
+                                          : 'Available when found & active'
+                                    }
+                                  </span>
+                                )
                               )}
                             </td>
                           )}
@@ -770,7 +875,7 @@ function ItemManagement() {
 
           {/* Results Summary */}
           <div className="text-center text-gray-600">
-            Showing {((pagination.current - 1) * filters.limit) + 1}-{Math.min(pagination.current * filters.limit, pagination.total)} of {pagination.total} items
+            Showing {((pagination.current - 1) * filters.limit) + 1}-{Math.min(pagination.current * filters.limit, pagination.total)} of {pagination.total} {activeTab === 'returned' ? 'returned' : ''} items
             {isStaff && ` in ${user?.branch}`}
           </div>
         </>
