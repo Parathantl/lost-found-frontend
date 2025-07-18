@@ -10,6 +10,18 @@ import { X, Upload, FileText, AlertCircle, Send } from 'lucide-react';
 function ClaimForm({ item, onClose, onSuccess }) {
   const [verificationFiles, setVerificationFiles] = useState([]);
   const [previewUrls, setPreviewUrls] = useState([]);
+  const [uploadedDocumentUrls, setUploadedDocumentUrls] = useState([]);
+  const [uploadingDocuments, setUploadingDocuments] = useState([]);
+
+  const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_REACT_APP_CLOUDINARY_CLOUD_NAME || 'your-cloud-name';
+  const CLOUDINARY_UPLOAD_PRESET = import.meta.env.VITE_REACT_APP_CLOUDINARY_UPLOAD_PRESET || 'ml_default';
+
+  // Validate Cloudinary configuration
+  React.useEffect(() => {
+    if (CLOUDINARY_CLOUD_NAME === 'your-cloud-name') {
+      console.warn('Please set REACT_APP_CLOUDINARY_CLOUD_NAME in your .env file');
+    }
+  }, []);
 
   const {
     register,
@@ -18,38 +30,155 @@ function ClaimForm({ item, onClose, onSuccess }) {
   } = useForm();
 
   const submitClaimMutation = useMutation({
-    mutationFn: (data) => itemsAPI.submitClaim(item._id, data),
-    onSuccess: () => {
+    mutationFn: (data) => {
+      return itemsAPI.submitClaim(item._id, data);
+    },
+    onSuccess: () => {      
       toast.success('Claim submitted successfully!');
       onSuccess();
     },
     onError: (error) => {
+      console.error('Error:', error);
       toast.error(error.response?.data?.message || 'Failed to submit claim');
     },
-  });  
+  });
 
-  const handleFileChange = (e) => {
+  // Function to upload single document to Cloudinary
+  const uploadDocumentToCloudinary = async (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+    formData.append('cloud_name', CLOUDINARY_CLOUD_NAME);
+    
+    // Add resource type for non-image files
+    if (!file.type.startsWith('image/')) {
+      formData.append('resource_type', 'auto');
+    }
+
+    try {
+      const response = await fetch(
+        `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/upload`,
+        {
+          method: 'POST',
+          body: formData,
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.error('Cloudinary upload error:', data);
+        throw new Error(data.error?.message || 'Failed to upload document');
+      }
+
+      // Ensure we have a secure_url
+      if (!data.secure_url) {
+        throw new Error('Upload successful but no URL received from Cloudinary');
+      }
+
+      const uploadResult = {
+        url: data.secure_url,
+        name: file.name,
+        type: file.type,
+        size: file.size,
+        publicId: data.public_id
+      };
+
+      return uploadResult;
+    } catch (error) {
+      console.error('Error uploading document:', error);
+      throw error;
+    }
+  };
+
+  const handleFileChange = async (e) => {
     const files = Array.from(e.target.files);
-    if (files.length > 3) {
-      toast.error('You can upload maximum 3 verification documents');
+    const currentFileCount = verificationFiles.length;
+    
+    // Check if adding new files would exceed the limit
+    if (currentFileCount + files.length > 3) {
+      toast.error(`You can only upload ${3 - currentFileCount} more document(s). Maximum 3 documents allowed.`);
       return;
     }
 
-    setVerificationFiles(files);
-    
+    // Validate file sizes (5MB each)
+    const oversizedFiles = files.filter(file => file.size > 5 * 1024 * 1024);
+    if (oversizedFiles.length > 0) {
+      toast.error('Some files are too large. Maximum size is 5MB per document.');
+      return;
+    }
+
+    // Validate file types
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'application/pdf'];
+    const invalidFiles = files.filter(file => !validTypes.includes(file.type));
+    if (invalidFiles.length > 0) {
+      toast.error('Please upload only image files (JPEG, PNG, GIF, WebP) or PDF documents');
+      return;
+    }
+
+    // Add files to state
+    setVerificationFiles(prev => [...prev, ...files]);
+
     // Create preview URLs for images
-    const urls = files.map(file => {
+    const newPreviewUrls = files.map(file => {
       if (file.type.startsWith('image/')) {
         return URL.createObjectURL(file);
       }
       return null;
     });
-    setPreviewUrls(urls);
+    setPreviewUrls(prev => [...prev, ...newPreviewUrls]);
+
+    // Initialize uploading state for new documents
+    const newUploadingStates = files.map(() => true);
+    setUploadingDocuments(prev => [...prev, ...newUploadingStates]);
+
+    // Upload each document immediately
+    try {
+      const uploadPromises = files.map(async (file, index) => {
+        try {
+          const uploadResult = await uploadDocumentToCloudinary(file);
+          
+          // Update uploading state for this specific document
+          setUploadingDocuments(prev => {
+            const newState = [...prev];
+            newState[currentFileCount + index] = false;
+            return newState;
+          });
+
+          return uploadResult;
+        } catch (error) {
+          console.error(`Error uploading document ${index + 1}:`, error);
+          
+          // Update uploading state for failed upload
+          setUploadingDocuments(prev => {
+            const newState = [...prev];
+            newState[currentFileCount + index] = false;
+            return newState;
+          });
+
+          throw error;
+        }
+      });
+
+      const uploadResults = await Promise.all(uploadPromises);
+      
+      setUploadedDocumentUrls(prev => [...prev, ...uploadResults]);
+      
+      toast.success(`${files.length} document(s) uploaded successfully!`);
+    } catch (error) {
+      toast.error(`Failed to upload some documents: ${error.message}`);
+    }
+
+    // Clear the file input to allow re-uploading the same files
+    e.target.value = '';
   };
 
   const removeFile = (index) => {
+    // Remove from all arrays
     const newFiles = verificationFiles.filter((_, i) => i !== index);
     const newUrls = previewUrls.filter((_, i) => i !== index);
+    const newUploadedUrls = uploadedDocumentUrls.filter((_, i) => i !== index);
+    const newUploadingStates = uploadingDocuments.filter((_, i) => i !== index);
     
     // Revoke URL to prevent memory leaks
     if (previewUrls[index]) {
@@ -58,36 +187,52 @@ function ClaimForm({ item, onClose, onSuccess }) {
     
     setVerificationFiles(newFiles);
     setPreviewUrls(newUrls);
+    setUploadedDocumentUrls(newUploadedUrls);
+    setUploadingDocuments(newUploadingStates);
   };
 
   const onSubmit = async (data) => {
     try {
-      // Convert files to base64 for demo purposes
-      const verificationDocuments = await Promise.all(
-        verificationFiles.map(async (file) => {
-          return new Promise((resolve) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve({
-              name: file.name,
-              type: file.type,
-              data: reader.result
-            });
-            reader.readAsDataURL(file);
-          });
-        })
-      );
+      // Check if any documents are still uploading
+      const hasUploadingDocuments = uploadingDocuments.some(isUploading => isUploading);
+      if (hasUploadingDocuments) {
+        toast.error('Please wait for all documents to finish uploading before submitting.');
+        return;
+      }
+
+      // Validate that all uploaded documents have URLs
+      const validDocuments = uploadedDocumentUrls.filter(doc => doc && doc.url);
+      
+      if (uploadedDocumentUrls.length > validDocuments.length) {
+        toast.error('Some documents failed to upload properly. Please try uploading them again.');
+        return;
+      }
+
+      // Create the exact structure we want to send
+      const documentsToSend = validDocuments.map((doc) => {
+        const result = {
+          url: doc.url,
+          name: doc.name,
+          type: doc.type,
+          size: doc.size,
+          publicId: doc.publicId
+        };
+        return result;
+      });
 
       const claimData = {
         ...data,
-        verificationDocuments,
+        verificationDocuments: documentsToSend
       };
 
       submitClaimMutation.mutate(claimData);
     } catch (error) {
-      toast.error('Failed to process verification documents');
-      console.error('File processing error:', error);
+      toast.error('Failed to submit claim: ' + error.message);
+      console.error('Claim submission error:', error);
     }
   };
+
+  const isSubmitDisabled = submitClaimMutation.isLoading || uploadingDocuments.some(isUploading => isUploading);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -159,14 +304,21 @@ function ClaimForm({ item, onClose, onSuccess }) {
             </p>
             
             <div className="space-y-4">
-              <label className="block w-full p-6 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-gray-400 transition-colors">
+              <label className={`block w-full p-6 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${
+                verificationFiles.length >= 3 
+                  ? 'border-gray-200 bg-gray-50 cursor-not-allowed' 
+                  : 'border-gray-300 hover:border-gray-400'
+              }`}>
                 <div className="text-center">
                   <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
                   <p className="text-gray-600">
-                    Click to upload verification documents
+                    {verificationFiles.length >= 3 
+                      ? 'Maximum 3 documents reached' 
+                      : 'Click to upload verification documents'
+                    }
                   </p>
                   <p className="text-sm text-gray-500 mt-1">
-                    PDF, PNG, JPG up to 3 files (5MB each)
+                    PDF, PNG, JPG, GIF, WebP ({3 - verificationFiles.length} remaining, 5MB each)
                   </p>
                 </div>
                 <input
@@ -174,6 +326,7 @@ function ClaimForm({ item, onClose, onSuccess }) {
                   multiple
                   accept="image/*,.pdf"
                   onChange={handleFileChange}
+                  disabled={verificationFiles.length >= 3}
                   className="sr-only"
                 />
               </label>
@@ -182,7 +335,7 @@ function ClaimForm({ item, onClose, onSuccess }) {
               {verificationFiles.length > 0 && (
                 <div className="space-y-2">
                   {verificationFiles.map((file, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg relative">
                       <div className="flex items-center">
                         {previewUrls[index] ? (
                           <img
@@ -200,15 +353,55 @@ function ClaimForm({ item, onClose, onSuccess }) {
                           </p>
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => removeFile(index)}
-                        className="text-red-500 hover:text-red-700"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
+
+                      {/* Upload status */}
+                      <div className="flex items-center">
+                        {uploadingDocuments[index] ? (
+                          <div className="flex items-center mr-3">
+                            <LoadingSpinner size="small" />
+                            <span className="text-xs text-blue-600 ml-1">Uploading...</span>
+                          </div>
+                        ) : uploadedDocumentUrls[index] && uploadedDocumentUrls[index].url ? (
+                          <div className="flex items-center mr-3">
+                            <div className="bg-green-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs">
+                              ✓
+                            </div>
+                            <span className="text-xs text-green-600 ml-1">Uploaded</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center mr-3">
+                            <div className="bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs">
+                              ✗
+                            </div>
+                            <span className="text-xs text-red-600 ml-1">Failed</span>
+                          </div>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() => removeFile(index)}
+                          disabled={uploadingDocuments[index]}
+                          className="text-red-500 hover:text-red-700 disabled:opacity-50"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
                   ))}
+                </div>
+              )}
+
+              {/* Upload Summary */}
+              {verificationFiles.length > 0 && (
+                <div className="text-sm text-gray-600">
+                  <p>
+                    {uploadedDocumentUrls.length} of {verificationFiles.length} documents uploaded successfully
+                    {uploadingDocuments.some(isUploading => isUploading) && (
+                      <span className="ml-2 text-blue-600">
+                        ({uploadingDocuments.filter(isUploading => isUploading).length} still uploading...)
+                      </span>
+                    )}
+                  </p>
                 </div>
               )}
             </div>
@@ -220,8 +413,8 @@ function ClaimForm({ item, onClose, onSuccess }) {
             <ul className="text-sm text-blue-700 space-y-1">
               <li>• Your claim will be reviewed by staff</li>
               <li>• You may be contacted for additional verification</li>
-              {/* <li>• Approved claims will be notified via email</li> */}
               <li>• Meet the item owner in a safe public location</li>
+              <li>• Documents are securely stored on Cloudinary</li>
             </ul>
           </div>
 
@@ -231,16 +424,25 @@ function ClaimForm({ item, onClose, onSuccess }) {
               type="button"
               onClick={onClose}
               className="btn-secondary"
+              disabled={isSubmitDisabled}
             >
               Cancel
             </button>
             <button
               type="submit"
-              disabled={submitClaimMutation.isLoading}
+              disabled={isSubmitDisabled}
               className="btn-primary"
             >
-              {submitClaimMutation.isLoading ? (
-                <LoadingSpinner size="small" />
+              {uploadingDocuments.some(isUploading => isUploading) ? (
+                <>
+                  <LoadingSpinner size="small" />
+                  Uploading Documents...
+                </>
+              ) : submitClaimMutation.isLoading ? (
+                <>
+                  <LoadingSpinner size="small" />
+                  Submitting Claim...
+                </>
               ) : (
                 <>
                   <Send className="w-4 h-4 mr-2" />

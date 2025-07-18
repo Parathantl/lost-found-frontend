@@ -67,7 +67,7 @@ function ProfilePage() {
   const tabs = [
     { id: 'profile', label: 'Profile Information', icon: User },
     { id: 'security', label: 'Security', icon: Shield },
-    { id: 'notifications', label: 'Notifications', icon: Bell },
+    // { id: 'notifications', label: 'Notifications', icon: Bell },
   ];
 
   return (
@@ -347,7 +347,7 @@ function ProfilePage() {
           )}
 
           {/* Notifications Tab */}
-          {activeTab === 'notifications' && (
+          {/* {activeTab === 'notifications' && (
             <div className="space-y-6">
               <h2 className="text-lg font-semibold text-gray-900">Notification Preferences</h2>
               
@@ -398,7 +398,7 @@ function ProfilePage() {
                 </div>
               </div>
             </div>
-          )}
+          )} */}
         </div>
       </div>
     </div>
