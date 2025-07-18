@@ -1,5 +1,5 @@
 // src/pages/RegisterPage.js
-import React from 'react';
+import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -10,6 +10,9 @@ const primaryColor = '#8249C0';
 const hoverColor = '#7B4BCE';
 
 function RegisterPage() {
+  const [showPassword, setShowPassword] = useState(false);
+const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
   const { register: registerUser, isLoading } = useAuth();
   const navigate = useNavigate();
   const {
@@ -113,23 +116,23 @@ function RegisterPage() {
                 Phone Number
               </label>
               <div className="mt-1 relative">
-                <input
-                  id="phone"
-                  type="tel"
-                  autoComplete="tel"
-                  {...register('phone', {
-                    required: 'Phone number is required',
-                    pattern: {
-                      value: /^[\+]?[0-9\s\-\(\)]+$/,
-                      message: 'Invalid phone number',
-                    },
-                  })}
-                  className={`appearance-none relative block w-full px-3 py-2 pl-10 border ${
-                    errors.phone ? 'border-red-300' : 'border-gray-300'
-                  } placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-2 sm:text-sm`}
-                  placeholder="Enter your phone number"
-                  style={{ focusRingColor: primaryColor }}
-                />
+              <input
+                id="phone"
+                type="tel"
+                autoComplete="tel"
+                {...register('phone', {
+                  required: 'Phone number is required',
+                  validate: (value) => {
+                    const digits = value.replace(/\D/g, '');
+                    return digits.length === 10 || 'Phone number must contain exactly 10 digits';
+                  },
+                })}
+                className={`appearance-none relative block w-full px-3 py-2 pl-10 border ${
+                  errors.phone ? 'border-red-300' : 'border-gray-300'
+                } placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-2 sm:text-sm`}
+                placeholder="Enter your phone number"
+                style={{ focusRingColor: primaryColor }}
+              />
                 <Phone className="absolute left-3 top-2.5 w-5 h-5 text-gray-400" />
               </div>
               {errors.phone && <p className="mt-1 text-sm text-red-600">{errors.phone.message}</p>}
@@ -137,13 +140,13 @@ function RegisterPage() {
 
             {/* Password */}
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
                 Password
               </label>
               <div className="mt-1 relative">
                 <input
                   id="password"
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   autoComplete="new-password"
                   {...register('password', {
                     required: 'Password is required',
@@ -152,46 +155,53 @@ function RegisterPage() {
                       message: 'Password must be at least 6 characters',
                     },
                   })}
-                  className={`appearance-none relative block w-full px-3 py-2 pl-10 border ${
+                  className={`appearance-none relative block w-full px-3 py-2 pl-10 pr-10 border ${
                     errors.password ? 'border-red-300' : 'border-gray-300'
                   } placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-2 sm:text-sm`}
                   placeholder="Enter your password"
-                  style={{ focusRingColor: primaryColor }}
                 />
                 <Lock className="absolute left-3 top-2.5 w-5 h-5 text-gray-400" />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-2.5 text-gray-500 text-sm focus:outline-none"
+                >
+                  {showPassword ? 'Hide' : 'Show'}
+                </button>
               </div>
-              {errors.password && (
-                <p className="mt-1 text-sm text-red-600">{errors.password.message}</p>
-              )}
             </div>
 
             {/* Confirm Password */}
             <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
                 Confirm Password
               </label>
               <div className="mt-1 relative">
                 <input
                   id="confirmPassword"
-                  type="password"
+                  type={showConfirmPassword ? 'text' : 'password'}
                   autoComplete="new-password"
                   {...register('confirmPassword', {
                     required: 'Please confirm your password',
                     validate: (value) =>
                       value === password || 'Passwords do not match',
                   })}
-                  className={`appearance-none relative block w-full px-3 py-2 pl-10 border ${
+                  className={`appearance-none relative block w-full px-3 py-2 pl-10 pr-10 border ${
                     errors.confirmPassword ? 'border-red-300' : 'border-gray-300'
                   } placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-2 sm:text-sm`}
                   placeholder="Confirm your password"
-                  style={{ focusRingColor: primaryColor }}
                 />
                 <Lock className="absolute left-3 top-2.5 w-5 h-5 text-gray-400" />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-3 top-2.5 text-gray-500 text-sm focus:outline-none"
+                >
+                  {showConfirmPassword ? 'Hide' : 'Show'}
+                </button>
               </div>
-              {errors.confirmPassword && (
-                <p className="mt-1 text-sm text-red-600">{errors.confirmPassword.message}</p>
-              )}
             </div>
+
           </div>
 
           {/* Submit */}

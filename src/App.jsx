@@ -22,6 +22,8 @@ import MyClaimsPage from './pages/MyClaimsPage';
 import NotificationsPage from './pages/NotificationsPage';
 import AdminPage from './pages/AdminPage';
 import ProfilePage from './pages/ProfilePage';
+import Footer from './components/Layout/Footer';
+import StaffPage from './pages/StaffPage';
 
 // Create a client
 const queryClient = new QueryClient({
@@ -162,11 +164,22 @@ function AppContent() {
             } 
           />
 
+        {/* Staff Routes */}
+        <Route 
+            path="/staff/*" 
+            element={
+              <ProtectedRoute roles={['staff', 'admin']}>
+                <StaffPage />
+              </ProtectedRoute>
+            } 
+          />
+
           {/* Catch all */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
       
+      <Footer />
       {/* Toast notifications */}
       <Toaster 
         position="top-right"

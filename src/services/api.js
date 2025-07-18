@@ -113,6 +113,20 @@ export const adminAPI = {
     }),
 };
 
+export const staffAPI = {
+  // Get staff dashboard stats
+  getDashboardStats: (timeRange = 30) => api.get(`/staff/dashboard/stats?timeRange=${timeRange}`),
+  
+  // Get staff recent activity
+  getRecentActivity: (limit = 20) => api.get(`/staff/dashboard/activity?limit=${limit}`),
+  
+  // Get items requiring attention
+  getItemsRequiringAttention: () => api.get('/staff/dashboard/attention'),
+  
+  // Get staff location analytics
+  getLocationAnalytics: (timeRange = 30) => api.get(`/staff/dashboard/analytics?timeRange=${timeRange}`),
+};
+
 // Auth API
 export const authAPI = {
   login: (data) => api.post('/auth/login', data),
