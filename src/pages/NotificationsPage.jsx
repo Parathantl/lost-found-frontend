@@ -1,4 +1,3 @@
-// src/pages/NotificationsPage.js
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
@@ -73,13 +72,15 @@ function NotificationsPage() {
     window.scrollTo(0, 0);
   };
 
-  const notifications = data?.data?.data || [];
+  const notifications = data?.data?.notifications || [];
   const pagination = data?.data?.pagination || {};
 
   const getNotificationIcon = (type) => {
     const icons = {
       match_found: Package,
       claim_submitted: FileText,
+      claim_approved: CheckCheck,
+      claim_rejected: AlertCircle,
       item_returned: Package,
       deadline_reminder: Clock,
       claim_verified: CheckCheck,
@@ -92,6 +93,8 @@ function NotificationsPage() {
     const colors = {
       match_found: 'text-blue-600',
       claim_submitted: 'text-yellow-600',
+      claim_approved: 'text-green-600',
+      claim_rejected: 'text-red-600',
       item_returned: 'text-green-600',
       deadline_reminder: 'text-orange-600',
       claim_verified: 'text-green-600',
@@ -112,6 +115,13 @@ function NotificationsPage() {
     return (
       <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
         <p className="text-red-800">Failed to load notifications. Please try again.</p>
+        <p className="text-red-600 text-sm mt-2">Error: {error.message}</p>
+        <button 
+          onClick={() => queryClient.invalidateQueries({ queryKey: ['notifications'] })}
+          className="mt-3 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+        >
+          Retry
+        </button>
       </div>
     );
   }
@@ -243,19 +253,30 @@ function NotificationsPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
-                          <p className={`text-sm ${!notification.read ? 'font-medium text-gray-900' : 'text-gray-700'}`}>
+                          <h4 className={`text-sm font-medium ${!notification.read ? 'text-gray-900' : 'text-gray-700'}`}>
+                            {notification.title}
+                          </h4>
+                          <p className={`text-sm mt-1 ${!notification.read ? 'text-gray-800' : 'text-gray-600'}`}>
                             {notification.message}
                           </p>
+                          
                           <div className="mt-1 flex items-center space-x-4 text-xs text-gray-500">
-                            <span>{formatDistanceToNow(new Date(notification.date), { addSuffix: true })}</span>
-                            {notification.item && (
+                            <span>{formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })}</span>
+                            
+                            {notification.relatedItem && (
                               <Link
-                                to={`/items/${notification.item._id}`}
+                                to={`/items/${notification.relatedItem._id}`}
                                 className="text-primary-600 hover:text-primary-700 flex items-center"
                               >
                                 <Eye className="w-3 h-3 mr-1" />
                                 View Item
                               </Link>
+                            )}
+                            
+                            {notification.relatedUser && (
+                              <span className="text-gray-500">
+                                by {notification.relatedUser.name}
+                              </span>
                             )}
                           </div>
                         </div>
@@ -279,10 +300,25 @@ function NotificationsPage() {
                         </div>
                       </div>
                       
-                      {notification.item && (
-                        <div className="mt-2 p-2 bg-gray-50 rounded text-xs">
-                          <span className="font-medium">Item:</span> {notification.item.title}
-                          <span className="ml-2 text-gray-500">({notification.item.type})</span>
+                      {notification.relatedItem && (
+                        <div className="mt-3 p-3 bg-gray-50 rounded-lg text-sm">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <span className="font-medium text-gray-700">Item:</span> 
+                              <span className="ml-1 text-gray-900">{notification.relatedItem.title}</span>
+                            </div>
+                            <div className="flex items-center space-x-2 text-xs text-gray-500">
+                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                notification.relatedItem.type === 'lost' 
+                                  ? 'bg-red-100 text-red-800' 
+                                  : 'bg-green-100 text-green-800'
+                              }`}>
+                                {notification.relatedItem.type}
+                              </span>
+                              <span>•</span>
+                              <span>{notification.relatedItem.location}</span>
+                            </div>
+                          </div>
                         </div>
                       )}
                     </div>

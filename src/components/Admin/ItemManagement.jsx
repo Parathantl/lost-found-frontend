@@ -28,6 +28,7 @@ import {
   List
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import AnalyticsDownloadButton from '../UI/AnalyticsDownloadButton';
 
 function ItemManagement() {
   const { user } = useAuth();
@@ -243,6 +244,9 @@ function ItemManagement() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center space-y-4 md:space-y-0">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Item Management</h1>
+          <div className="flex items-center space-x-2 mt-2">
+            <AnalyticsDownloadButton userRole={user?.role} userBranch={user?.location} />
+          </div>
           <div className="flex items-center mt-1 text-gray-600">
             {isStaff && (
               <>

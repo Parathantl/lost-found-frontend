@@ -1,4 +1,4 @@
-// src/pages/MyClaimsPage.js
+// src/pages/MyClaimsPage.js - CORRECTED VERSION
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
@@ -13,7 +13,8 @@ import {
   User,
   MapPin,
   Calendar,
-  Search
+  Search,
+  AlertTriangle
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -52,11 +53,24 @@ function MyClaimsPage() {
     }
   };
 
-  const claims = data?.data?.data || [];
+  let claims = [];
+  
+  if (data) {
+    if (Array.isArray(data.data)) {
+      claims = data.data;
+    } else if (Array.isArray(data)) {
+      claims = data;
+    } else if (data.data && Array.isArray(data.data.data)) {
+      claims = data.data.data;
+    } else {
+      console.error('Unexpected API response structure:', data);
+    }
+  }
 
   const getStatusBadge = (status) => {
     const badges = {
       pending: { class: 'badge-warning', icon: Clock },
+      approved: { class: 'badge-success', icon: CheckCircle },
       verified: { class: 'badge-success', icon: CheckCircle },
       rejected: { class: 'badge-danger', icon: XCircle },
     };
@@ -93,16 +107,30 @@ function MyClaimsPage() {
     return (
       <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
         <p className="text-red-800">Failed to load your claims. Please try again.</p>
+        <p className="text-red-600 text-sm mt-2">Error: {error.message}</p>
       </div>
     );
   }
 
-  // Calculate statistics
-  const stats = claims.reduce((acc, claimData) => {
+  // ✅ FIXED: Correct data structure handling
+  const validClaims = claims.filter(itemWithClaim => {
+    // Check if the item exists and has a claim
+    if (!itemWithClaim || !itemWithClaim.claim) {
+      console.warn('Invalid claim data - missing item or claim:', itemWithClaim);
+      return false;
+    }
+
+    return true;
+  });
+
+  const stats = validClaims.reduce((acc, itemWithClaim) => {
+    const claim = itemWithClaim.claim;
     acc.total++;
-    acc[claimData.claim.status] = (acc[claimData.claim.status] || 0) + 1;
+    if (claim && claim.status) {
+      acc[claim.status] = (acc[claim.status] || 0) + 1;
+    }
     return acc;
-  }, { total: 0, pending: 0, verified: 0, rejected: 0 });
+  }, { total: 0, pending: 0, verified: 0, approved: 0, rejected: 0 });
 
   return (
     <div className="space-y-6">
@@ -138,7 +166,7 @@ function MyClaimsPage() {
           <div className="flex items-center">
             <Clock className="w-8 h-8 text-warning-600" />
             <div className="ml-3">
-              <p className="text-2xl font-bold text-gray-900">{stats.pending}</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.pending || 0}</p>
               <p className="text-sm text-gray-600">Pending</p>
             </div>
           </div>
@@ -147,8 +175,8 @@ function MyClaimsPage() {
           <div className="flex items-center">
             <CheckCircle className="w-8 h-8 text-success-600" />
             <div className="ml-3">
-              <p className="text-2xl font-bold text-gray-900">{stats.verified}</p>
-              <p className="text-sm text-gray-600">Verified</p>
+              <p className="text-2xl font-bold text-gray-900">{(stats.verified || 0) + (stats.approved || 0)}</p>
+              <p className="text-sm text-gray-600">Approved</p>
             </div>
           </div>
         </div>
@@ -156,7 +184,7 @@ function MyClaimsPage() {
           <div className="flex items-center">
             <XCircle className="w-8 h-8 text-danger-600" />
             <div className="ml-3">
-              <p className="text-2xl font-bold text-gray-900">{stats.rejected}</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.rejected || 0}</p>
               <p className="text-sm text-gray-600">Rejected</p>
             </div>
           </div>
@@ -164,7 +192,7 @@ function MyClaimsPage() {
       </div>
 
       {/* Claims List */}
-      {claims.length === 0 ? (
+      {validClaims.length === 0 ? (
         <div className="bg-gray-50 rounded-lg p-12 text-center">
           <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-2">No claims submitted yet</h3>
@@ -177,8 +205,10 @@ function MyClaimsPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          {claims.map((claimData, index) => {
-            const { item, claim } = claimData;
+          {validClaims.map((itemWithClaim, index) => {
+            const item = itemWithClaim;
+            const claim = itemWithClaim.claim;
+
             const statusBadge = getStatusBadge(claim.status);
             const StatusIcon = statusBadge.icon;
 
@@ -197,24 +227,26 @@ function MyClaimsPage() {
                         </span>
                       </div>
                       <h3 className="text-xl font-semibold text-gray-900 mb-1">
-                        {item.title}
+                        {item.title || 'Unknown Item'}
                       </h3>
-                      <p className="text-gray-600 mb-3">{item.description}</p>
+                      <p className="text-gray-600 mb-3">{item.description || 'No description available'}</p>
                     </div>
-                    <Link
-                      to={`/items/${item._id}`}
-                      className="btn-secondary btn-sm ml-4"
-                    >
-                      <Eye className="w-4 h-4 mr-1" />
-                      View Item
-                    </Link>
+                    {item._id && (
+                      <Link
+                        to={`/items/${item._id}`}
+                        className="btn-secondary btn-sm ml-4"
+                      >
+                        <Eye className="w-4 h-4 mr-1" />
+                        View Item
+                      </Link>
+                    )}
                   </div>
 
                   {/* Item Details */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 p-3 bg-gray-50 rounded-lg">
                     <div className="flex items-center text-sm text-gray-600">
                       <MapPin className="w-4 h-4 mr-2" />
-                      <span>{item.location}</span>
+                      <span>{item.location || 'Location not specified'}</span>
                     </div>
                     <div className="flex items-center text-sm text-gray-600">
                       <Calendar className="w-4 h-4 mr-2" />
@@ -222,22 +254,24 @@ function MyClaimsPage() {
                     </div>
                     <div className="flex items-center text-sm text-gray-600">
                       <span className="mr-2">{getCategoryIcon(item.category)}</span>
-                      <span>{item.category}</span>
+                      <span>{item.category || 'other'}</span>
                     </div>
                   </div>
 
                   {/* Reported By */}
-                  <div className="flex items-center text-sm text-gray-600 mb-4">
-                    <User className="w-4 h-4 mr-2" />
-                    <span>Reported by {item.reportedBy?.name}</span>
-                  </div>
+                  {item.reportedBy && (
+                    <div className="flex items-center text-sm text-gray-600 mb-4">
+                      <User className="w-4 h-4 mr-2" />
+                      <span>Reported by {item.reportedBy.name || 'Unknown'}</span>
+                    </div>
+                  )}
 
                   {/* Claim Details */}
                   <div className="border-t pt-4">
                     <div className="flex items-center justify-between mb-3">
                       <h4 className="font-medium text-gray-900">Your Claim</h4>
                       <span className="text-sm text-gray-600">
-                        Submitted {formatDate(claim.claimDate)}
+                        Submitted {formatDate(claim.createdAt)}
                       </span>
                     </div>
                     
@@ -264,12 +298,12 @@ function MyClaimsPage() {
                       </div>
                     )}
 
-                    {claim.status === 'verified' && (
+                    {(claim.status === 'verified' || claim.status === 'approved') && (
                       <div className="bg-green-50 border border-green-200 rounded-lg p-3">
                         <div className="flex items-start">
                           <CheckCircle className="w-5 h-5 text-green-600 mt-0.5 mr-2 flex-shrink-0" />
                           <div>
-                            <p className="text-sm font-medium text-green-800">Claim Verified!</p>
+                            <p className="text-sm font-medium text-green-800">Claim Approved!</p>
                             <p className="text-sm text-green-700 mt-1">
                               Your claim has been approved. Contact the item owner to arrange pickup.
                             </p>
@@ -287,6 +321,11 @@ function MyClaimsPage() {
                             <p className="text-sm text-red-700 mt-1">
                               Your claim could not be verified. If you believe this is an error, please contact support.
                             </p>
+                            {claim.notes && (
+                              <p className="text-sm text-red-700 mt-2 italic">
+                                Reason: {claim.notes}
+                              </p>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -302,7 +341,7 @@ function MyClaimsPage() {
                           {claim.verificationDocuments.map((doc, docIndex) => (
                             <span key={`doc-${docIndex}`} className="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">
                               <FileText className="w-3 h-3 mr-1" />
-                              Document {docIndex + 1}
+                              {doc.name || `Document ${docIndex + 1}`}
                             </span>
                           ))}
                         </div>
@@ -316,8 +355,20 @@ function MyClaimsPage() {
         </div>
       )}
 
+      {/* Show warning if some claims were filtered out */}
+      {claims.length > validClaims.length && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <div className="flex items-center">
+            <AlertTriangle className="w-5 h-5 text-yellow-600 mr-2" />
+            <span className="text-yellow-800">
+              {claims.length - validClaims.length} claim(s) could not be displayed due to missing data. Please contact support if you believe this is an error.
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Tips */}
-      {claims.length > 0 && (
+      {validClaims.length > 0 && (
         <div className="bg-blue-50 rounded-lg p-6">
           <h3 className="text-lg font-semibold text-blue-900 mb-3">💡 Claim Tips</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

@@ -76,20 +76,33 @@ export const dashboardAPI = {
 
 // Notifications API
 export const notificationsAPI = {
-  // Get notifications
-  getNotifications: (params = {}) => api.get('/notifications', { params }),
+  getNotifications: async (params = {}) => {
+    const queryString = new URLSearchParams(params).toString();
+    const { data } = await api.get(`/notifications?${queryString}`);
+    return data;
+  },
   
-  // Mark notification as read
-  markAsRead: (notificationId) => api.put(`/notifications/${notificationId}/read`),
+
+  getUnreadCount: async () => {
+    const { data } = await api.get(`/notifications/unread-count`);
+    return data;
+  },
   
-  // Mark all notifications as read
-  markAllAsRead: () => api.put('/notifications/mark-all-read'),
+  markAsRead: async (notificationId) => {
+    const { data } = await api.put(`/notifications/${notificationId}/read`);
+    return data;
+  },
   
-  // Send system notification (admin)
-  sendSystemNotification: (data) => api.post('/notifications/system', data),
+  markAllAsRead: async () => {
+    const { data } = await api.put(`/notifications/mark-all-read`);
+    return data;
+  },
   
-  // Send deadline reminders (admin)
-  sendDeadlineReminders: () => api.post('/notifications/deadline-reminders'),
+  deleteNotification: async (notificationId) => {
+    const { data } = await api.delete(`/notifications/${notificationId}`);
+    return data;
+  },
+  
 };
 
 // Admin API

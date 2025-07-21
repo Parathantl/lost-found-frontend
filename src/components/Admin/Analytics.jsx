@@ -34,34 +34,6 @@ function Analytics() {
   const stats = statsData?.data?.data || {};
   const locationStats = locationData?.data?.data || [];
 
-  // const handleExport = async (type) => {
-  //   try {
-  //     const response = await adminAPI.exportData(type, exportFormat);
-      
-  //     if (exportFormat === 'csv') {
-  //       // Handle CSV download
-  //       const blob = new Blob([response.data], { type: 'text/csv' });
-  //       const url = window.URL.createObjectURL(blob);
-  //       const link = document.createElement('a');
-  //       link.href = url;
-  //       link.download = `${type}_export_${Date.now()}.csv`;
-  //       link.click();
-  //       window.URL.revokeObjectURL(url);
-  //     } else {
-  //       // Handle JSON download
-  //       const blob = new Blob([JSON.stringify(response.data, null, 2)], { type: 'application/json' });
-  //       const url = window.URL.createObjectURL(blob);
-  //       const link = document.createElement('a');
-  //       link.href = url;
-  //       link.download = `${type}_export_${Date.now()}.json`;
-  //       link.click();
-  //       window.URL.revokeObjectURL(url);
-  //     }
-  //   } catch (error) {
-  //     console.error('Export failed:', error);
-  //   }
-  // };
-
   if (statsLoading) {
     return (
       <div className="flex justify-center items-center min-h-[400px]">

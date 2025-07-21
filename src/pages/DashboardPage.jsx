@@ -1,4 +1,3 @@
-// src/pages/DashboardPage.js
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
@@ -22,7 +21,7 @@ function DashboardPage() {
   const { user } = useAuth();
 
   // ✅ Updated to React Query v5 signature
-  const { data: stats, isLoading: statsLoading } = useQuery({
+  const { data: stats, isLoading: statsLoading, error } = useQuery({
     queryKey: ['userDashboardStats'],
     queryFn: dashboardAPI.getUserStats,
     refetchInterval: 30000,
@@ -36,12 +35,26 @@ function DashboardPage() {
     );
   }
 
+  // ✅ ADD ERROR DISPLAY
+  if (error) {
+    return (
+      <div className="flex justify-center items-center min-h-[400px]">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+          <h3 className="text-lg font-semibold text-red-800 mb-2">Failed to load dashboard</h3>
+          <p className="text-red-600">{error.message}</p>
+          <p className="text-sm text-red-500 mt-2">Check the browser console and backend logs for more details.</p>
+        </div>
+      </div>
+    );
+  }
+
   const dashboardStats = stats?.data || {};
   const overview = dashboardStats.overview || {};
   const recentActivity = dashboardStats.recentActivity || {};
 
   return (
     <div className="space-y-6">
+
       {/* Welcome Header */}
       <div className="bg-white rounded-lg shadow-sm border p-6">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center space-y-4 md:space-y-0">
@@ -216,6 +229,7 @@ function DashboardPage() {
                     <div className={`badge ${
                       claimData.claim.status === 'pending' ? 'badge-warning' :
                       claimData.claim.status === 'verified' ? 'badge-success' :
+                      claimData.claim.status === 'approved' ? 'badge-success' :
                       'badge-danger'
                     }`}>
                       {claimData.claim.status}
