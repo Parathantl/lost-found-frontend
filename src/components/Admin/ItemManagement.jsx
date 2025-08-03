@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import AnalyticsDownloadButton from '../UI/AnalyticsDownloadButton';
+import { capitalizeBranch } from '../../utils/capitalizeFirstWord';
 
 function ItemManagement() {
   const { user } = useAuth();
@@ -251,7 +252,7 @@ function ItemManagement() {
             {isStaff && (
               <>
                 <MapPin className="w-4 h-4 mr-1" />
-                <span>Managing items for: {user?.branch || 'Not assigned'}</span>
+                <span>Managing items for: {capitalizeBranch(user?.branch)}</span>
               </>
             )}
             {isAdmin && (

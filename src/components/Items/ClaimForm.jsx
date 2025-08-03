@@ -7,7 +7,7 @@ import LoadingSpinner from '../UI/LoadingSpinner';
 import toast from 'react-hot-toast';
 import { X, Upload, FileText, AlertCircle, Send } from 'lucide-react';
 
-function ClaimForm({ item, onClose, onSuccess }) {
+function ClaimForm({ item, onClose, onSuccess, type }) {
   const [verificationFiles, setVerificationFiles] = useState([]);
   const [previewUrls, setPreviewUrls] = useState([]);
   const [uploadedDocumentUrls, setUploadedDocumentUrls] = useState([]);
@@ -239,7 +239,11 @@ function ClaimForm({ item, onClose, onSuccess }) {
       <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b">
-          <h2 className="text-xl font-semibold text-gray-900">Claim Item</h2>
+          {type === 'lost' ? (
+            <h2 className="text-xl font-semibold text-gray-900">Claim Lost Item</h2>
+          ) : (
+            <h2 className="text-xl font-semibold text-gray-900">Claim Found Item</h2>
+          )}
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600"

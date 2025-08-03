@@ -22,6 +22,7 @@ import {
   Eye
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { sriLankanDistricts } from '../../utils/districtsList';
 
 function UserManagement() {
   const [filters, setFilters] = useState({
@@ -161,6 +162,19 @@ function UserManagement() {
                 <option value="true">Active</option>
                 <option value="false">Inactive</option>
               </select>
+
+              <select
+                  value={filters.branch}
+                  onChange={(e) => handleFilterChange({ branch: e.target.value })}
+                  className="form-input min-w-[150px]"
+                >
+                  <option value="">All Branches</option>
+                  {sriLankanDistricts.map((branch) => (
+                    <option key={branch.value} value={branch.value}>
+                      {branch.label}
+                    </option>
+                  ))}
+                </select>
               
               <button
                 type="button"
@@ -254,7 +268,9 @@ function UserManagement() {
                           {user.branch && (
                             <>
                               <br />
-                              <span className="badge-gray">{user.branch}</span>
+                              <span className="badge-gray">
+                                {sriLankanDistricts.find(b => b.value === user.branch)?.label || user.branch}
+                              </span>
                             </>
                           )}
                         </div>
@@ -424,13 +440,18 @@ function EditUserModal({ user, onClose, onSave, isLoading }) {
           {(formData.role === 'staff' || formData.role === 'admin') && (
             <div>
               <label className="form-label">Branch</label>
-              <input
-                type="text"
+              <select
                 value={formData.branch}
                 onChange={(e) => setFormData({ ...formData, branch: e.target.value })}
                 className="form-input"
-                placeholder="Enter branch name"
-              />
+              >
+                <option value="">Select a branch</option>
+                {sriLankanDistricts.map((branch) => (
+                  <option key={branch.value} value={branch.value}>
+                    {branch.label}
+                  </option>
+                ))}
+              </select>
             </div>
           )}
 

@@ -21,6 +21,7 @@ import {
   Search,
   Bell
 } from 'lucide-react';
+import { sriLankanDistricts } from '../utils/districtsList';
 
 function CreateItemPage() {
   const { user } = useAuth();
@@ -444,6 +445,30 @@ function CreateItemPage() {
                 <p className="mt-1 text-sm text-red-600">{errors.date.message}</p>
               )}
             </div>
+
+            <div>
+              <label className="form-label">
+                District *
+              </label>
+              <select
+                {...register('district', { required: 'District is required' })}
+                className={`form-input ${errors.district ? 'border-red-300' : ''}`}
+              >
+                <option value="">Select a district</option>
+                {sriLankanDistricts.map((district) => (
+                  <option key={district.value} value={district.value}>
+                    {district.label}
+                  </option>
+                ))}
+              </select>
+              {errors.district && (
+                <p className="mt-1 text-sm text-red-600">{errors.district.message}</p>
+              )}
+              <p className="mt-1 text-xs text-gray-500">
+                💡 Select the district where the item was {itemType === 'lost' ? 'lost' : 'found'}
+              </p>
+            </div>
+
           </div>
         </div>
 
@@ -646,12 +671,44 @@ function CreateItemPage() {
               </label>
               <input
                 type="tel"
-                {...register('contactInfo.phone', { required: 'Phone is required' })}
+                placeholder="e.g., 0771234567"
+                {...register('contactInfo.phone', { 
+                  required: 'Phone number is required',
+                  pattern: {
+                    value: /^0[7][0-9]{8}$/,
+                    message: 'Enter a valid Sri Lankan mobile number starting with 07 (10 digits total)'
+                  },
+                  validate: {
+                    isDigitsOnly: (value) => {
+                      return /^[0-9]+$/.test(value) || 'Phone number must contain only digits';
+                    },
+                    isCorrectLength: (value) => {
+                      return value.length === 10 || 'Phone number must be exactly 10 digits';
+                    }
+                  }
+                })}
+                onInput={(e) => {
+                  // Remove any non-digit characters as user types
+                  e.target.value = e.target.value.replace(/\D/g, '');
+                  // Limit to 10 characters
+                  if (e.target.value.length > 10) {
+                    e.target.value = e.target.value.slice(0, 10);
+                  }
+                }}
+                onKeyPress={(e) => {
+                  // Prevent non-numeric characters from being entered
+                  if (!/[0-9]/.test(e.key) && e.key !== 'Backspace' && e.key !== 'Delete' && e.key !== 'Tab') {
+                    e.preventDefault();
+                  }
+                }}
                 className={`form-input ${errors.contactInfo?.phone ? 'border-red-300' : ''}`}
               />
               {errors.contactInfo?.phone && (
                 <p className="mt-1 text-sm text-red-600">{errors.contactInfo.phone.message}</p>
               )}
+              <p className="mt-1 text-xs text-gray-500">
+                Enter 10 digits starting with 07 (e.g., 0771234567)
+              </p>
             </div>
           </div>
         </div>

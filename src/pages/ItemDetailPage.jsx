@@ -120,6 +120,7 @@ function ItemDetailPage() {
 
   const isOwner = user && item.reportedBy._id === user.id;
   const canClaim = isAuthenticated && !isOwner && item.type === 'found' && item.status === 'active';
+  const canReportFound = isAuthenticated && !isOwner && item.type === 'lost' && item.status === 'active';
   const hasUserClaimed = user && item.claims?.some(claim => claim.claimedBy._id === user.id);
 
   const getStatusBadge = (status) => {
@@ -388,6 +389,16 @@ function ItemDetailPage() {
                   Claim This Item
                 </button>
               )}
+
+              {canReportFound  && !hasUserClaimed && (
+                <button
+                  onClick={() => setShowClaimForm(true)}
+                  className="w-full btn-secondary"
+                >
+                  <FileText className="w-4 h-4 mr-2" />
+                  Report as Found
+                </button>
+              )}
               
               {hasUserClaimed && (
                 <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
@@ -489,6 +500,7 @@ function ItemDetailPage() {
       {/* Claim Form Modal */}
       {showClaimForm && (
         <ClaimForm
+          type={item.type === 'lost' ? 'found' : 'lost'}
           item={item}
           onClose={() => setShowClaimForm(false)}
           onSuccess={() => {

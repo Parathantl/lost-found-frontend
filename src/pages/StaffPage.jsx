@@ -15,6 +15,7 @@ import {
   MapPin,
   Shield
 } from 'lucide-react';
+import { capitalizeBranch } from '../utils/capitalizeFirstWord';
 
 function StaffPage() {
   const { user } = useAuth();
@@ -73,7 +74,9 @@ function StaffPage() {
         <div className="px-6 py-4 bg-blue-50 border-b">
           <div className="flex items-center text-sm text-blue-800">
             <MapPin className="w-4 h-4 mr-2" />
-            <span className="font-medium">Location: {user?.branch || 'Not assigned'}</span>
+            <span className="font-medium">
+              Location: {capitalizeBranch(user?.branch)}
+            </span>
           </div>
           <p className="text-xs text-blue-600 mt-1">
             Managing items for this location

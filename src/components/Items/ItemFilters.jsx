@@ -1,6 +1,7 @@
 // src/components/Items/ItemFilters.js
 import React from 'react';
 import { Shield } from 'lucide-react';
+import { sriLankanDistricts } from '../../utils/districtsList';
 
 function ItemFilters({ filters, onChange }) {
   const categories = [
@@ -33,7 +34,7 @@ function ItemFilters({ filters, onChange }) {
     { value: 'createdAt', label: 'Date Reported' },
     { value: 'date', label: 'Date Lost/Found' },
     { value: 'title', label: 'Title' },
-    { value: 'location', label: 'Location' },
+    { value: 'district', label: 'District' },
   ];
 
   const handleChange = (field, value) => {
@@ -88,17 +89,23 @@ function ItemFilters({ filters, onChange }) {
         </select>
       </div>
 
-      {/* Location Filter */}
       <div>
-        <label className="form-label">Location</label>
-        <input
-          type="text"
-          placeholder="Enter location..."
-          value={filters.location}
-          onChange={(e) => handleChange('location', e.target.value)}
-          className="form-input"
-        />
+        <label className="form-label">District</label>
+        <select
+          value={filters.branch}
+          onChange={(e) => handleChange('district', e.target.value)}
+          className="form-input min-w-[150px]"
+        >
+          <option value="">All Branches</option>
+          {sriLankanDistricts.map((branch) => (
+            <option key={branch.value} value={branch.value}>
+              {branch.label}
+            </option>
+          ))}
+        </select>
       </div>
+
+
 
       {/* Police Handover Filter */}
       <div>
@@ -161,7 +168,7 @@ function ItemFilters({ filters, onChange }) {
             type: '',
             category: '',
             status: 'active',
-            location: '',
+            district: '',
             handedOverToPolice: '',
             sortBy: 'createdAt',
             sortOrder: 'desc',

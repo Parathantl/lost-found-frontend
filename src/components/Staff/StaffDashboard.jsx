@@ -25,6 +25,7 @@ import {
   Filter
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { capitalizeBranch } from '../../utils/capitalizeFirstWord';
 
 function StaffDashboard() {
   const { user } = useAuth();
@@ -115,7 +116,7 @@ function StaffDashboard() {
           <h1 className="text-3xl font-bold text-gray-900">Staff Dashboard</h1>
           <div className="flex items-center mt-1 text-gray-600">
             <MapPin className="w-4 h-4 mr-1" />
-            <span>Managing items for: <strong>{stats.location || user?.branch}</strong></span>
+            <span>Managing items for: <strong>{capitalizeBranch(user?.branch)}</strong></span>
           </div>
           <div className="flex items-center mt-1 text-sm text-gray-500">
             <Activity className="w-4 h-4 mr-1" />
