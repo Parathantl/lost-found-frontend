@@ -2,7 +2,7 @@ import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { dashboardAPI } from '../services/api';
+import { itemsAPI, claimsAPI } from '../services/api';
 import LoadingSpinner from '../components/UI/LoadingSpinner';
 import StatsCard from '../components/Dashboard/StatsCard';
 
@@ -20,14 +20,24 @@ import {
 function DashboardPage() {
   const { user } = useAuth();
 
-  // ✅ Updated to React Query v5 signature
-  const { data: stats, isLoading: statsLoading, error } = useQuery({
-    queryKey: ['userDashboardStats'],
-    queryFn: dashboardAPI.getUserStats,
+  // Fetch my items data
+  const { data: itemsData, isLoading: itemsLoading, error: itemsError } = useQuery({
+    queryKey: ['myItems', { type: '', status: '', page: 1, limit: 100 }],
+    queryFn: () => itemsAPI.getMyItems({ type: '', status: '', page: 1, limit: 100 }),
     refetchInterval: 30000,
   });
 
-  if (statsLoading) {
+  // Fetch my claims data
+  const { data: claimsData, isLoading: claimsLoading, error: claimsError } = useQuery({
+    queryKey: ['myClaims'],
+    queryFn: claimsAPI.getMyClaims,
+    refetchInterval: 30000,
+  });
+
+  const isLoading = itemsLoading || claimsLoading;
+  const error = itemsError || claimsError;
+
+  if (isLoading) {
     return (
       <div className="flex justify-center items-center min-h-[400px]">
         <LoadingSpinner size="large" text="Loading dashboard..." />
@@ -35,7 +45,6 @@ function DashboardPage() {
     );
   }
 
-  // ✅ ADD ERROR DISPLAY
   if (error) {
     return (
       <div className="flex justify-center items-center min-h-[400px]">
@@ -48,9 +57,67 @@ function DashboardPage() {
     );
   }
 
-  const dashboardStats = stats?.data || {};
-  const overview = dashboardStats.overview || {};
-  const recentActivity = dashboardStats.recentActivity || {};
+  // Process items data
+  const items = itemsData?.data?.data || [];
+  
+  // Process claims data - handle the structure from MyClaimsPage
+  let claims = [];
+  if (claimsData) {
+    if (Array.isArray(claimsData.data)) {
+      claims = claimsData.data;
+    } else if (Array.isArray(claimsData)) {
+      claims = claimsData;
+    } else if (claimsData.data && Array.isArray(claimsData.data.data)) {
+      claims = claimsData.data.data;
+    }
+  }
+
+  // Filter valid claims
+  const validClaims = claims.filter(itemWithClaim => {
+    return itemWithClaim && itemWithClaim.claim;
+  });
+
+  // Calculate stats from actual data
+  const itemStats = items.reduce((acc, item) => {
+    acc.total++;
+    acc[item.type] = (acc[item.type] || 0) + 1;
+    acc[item.status] = (acc[item.status] || 0) + 1;
+    return acc;
+  }, { total: 0, lost: 0, found: 0, active: 0, claimed: 0, returned: 0 });
+
+  const claimStats = validClaims.reduce((acc, itemWithClaim) => {
+    const claim = itemWithClaim.claim;
+    acc.total++;
+    if (claim && claim.status) {
+      acc[claim.status] = (acc[claim.status] || 0) + 1;
+    }
+    return acc;
+  }, { total: 0, pending: 0, verified: 0, approved: 0, rejected: 0 });
+
+  // Create overview object
+  const overview = {
+    myTotalItems: itemStats.total,
+    myLostItems: itemStats.lost || 0,
+    myFoundItems: itemStats.found || 0,
+    myActiveItems: itemStats.active || 0,
+    myClaimedItems: itemStats.claimed || 0,
+    myReturnedItems: itemStats.returned || 0,
+    myClaims: claimStats.total,
+    pendingClaims: claimStats.pending || 0,
+    approvedClaims: (claimStats.verified || 0) + (claimStats.approved || 0),
+    rejectedClaims: claimStats.rejected || 0,
+    unreadNotifications: 0 // You can implement this separately if needed
+  };
+
+  // Get recent items (last 5)
+  const recentItems = items
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+    .slice(0, 5);
+
+  // Get recent claims (last 5)
+  const recentClaims = validClaims
+    .sort((a, b) => new Date(b.claim.createdAt) - new Date(a.claim.createdAt))
+    .slice(0, 5);
 
   return (
     <div className="space-y-6">
@@ -88,28 +155,28 @@ function DashboardPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatsCard
           title="My Items"
-          value={overview.myTotalItems || 0}
+          value={overview.myTotalItems}
           icon={<Package className="w-8 h-8 text-primary-600" />}
-          trend={`${overview.myActiveItems || 0} active`}
+          trend={`${overview.myActiveItems} active`}
           color="primary"
         />
         <StatsCard
           title="My Claims"
-          value={overview.myClaims || 0}
+          value={overview.myClaims}
           icon={<FileText className="w-8 h-8 text-blue-600" />}
-          trend="Submitted claims"
+          trend={`${overview.pendingClaims} pending`}
           color="blue"
         />
         <StatsCard
           title="Returned Items"
-          value={overview.myReturnedItems || 0}
+          value={overview.myReturnedItems}
           icon={<CheckCircle className="w-8 h-8 text-success-600" />}
           trend="Successfully returned"
           color="success"
         />
         <StatsCard
           title="Notifications"
-          value={overview.unreadNotifications || 0}
+          value={overview.unreadNotifications}
           icon={<Bell className="w-8 h-8 text-warning-600" />}
           trend="Unread messages"
           color="warning"
@@ -123,19 +190,19 @@ function DashboardPage() {
           <div className="space-y-4">
             <div className="flex justify-between items-center">
               <span className="text-gray-600">Lost Items</span>
-              <span className="font-semibold text-red-600">{overview.myLostItems || 0}</span>
+              <span className="font-semibold text-red-600">{overview.myLostItems}</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-gray-600">Found Items</span>
-              <span className="font-semibold text-green-600">{overview.myFoundItems || 0}</span>
+              <span className="font-semibold text-green-600">{overview.myFoundItems}</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-gray-600">Active Items</span>
-              <span className="font-semibold text-blue-600">{overview.myActiveItems || 0}</span>
+              <span className="font-semibold text-blue-600">{overview.myActiveItems}</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-gray-600">Claimed Items</span>
-              <span className="font-semibold text-purple-600">{overview.myClaimedItems || 0}</span>
+              <span className="font-semibold text-purple-600">{overview.myClaimedItems}</span>
             </div>
           </div>
           <div className="mt-4 pt-4 border-t">
@@ -146,30 +213,58 @@ function DashboardPage() {
         </div>
 
         <div className="bg-white rounded-lg shadow-sm border p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
-          <div className="space-y-3">
-            <Link to="/create-item" className="flex items-center p-3 rounded-lg border border-gray-200 hover:border-primary-300 hover:bg-primary-50 transition-colors">
-              <Plus className="w-5 h-5 text-primary-600 mr-3" />
-              <div>
-                <div className="font-medium text-gray-900">Report Lost/Found Item</div>
-                <div className="text-sm text-gray-600">Create a new item report</div>
-              </div>
-            </Link>
-            <Link to="/items" className="flex items-center p-3 rounded-lg border border-gray-200 hover:border-primary-300 hover:bg-primary-50 transition-colors">
-              <Package className="w-5 h-5 text-primary-600 mr-3" />
-              <div>
-                <div className="font-medium text-gray-900">Browse Items</div>
-                <div className="text-sm text-gray-600">Search for your lost items</div>
-              </div>
-            </Link>
-            <Link to="/my-claims" className="flex items-center p-3 rounded-lg border border-gray-200 hover:border-primary-300 hover:bg-primary-50 transition-colors">
-              <FileText className="w-5 h-5 text-primary-600 mr-3" />
-              <div>
-                <div className="font-medium text-gray-900">My Claims</div>
-                <div className="text-sm text-gray-600">Track your claim status</div>
-              </div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Claims Overview</h3>
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600">Total Claims</span>
+              <span className="font-semibold text-gray-900">{overview.myClaims}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600">Pending</span>
+              <span className="font-semibold text-yellow-600">{overview.pendingClaims}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600">Approved</span>
+              <span className="font-semibold text-green-600">{overview.approvedClaims}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600">Rejected</span>
+              <span className="font-semibold text-red-600">{overview.rejectedClaims}</span>
+            </div>
+          </div>
+          <div className="mt-4 pt-4 border-t">
+            <Link to="/my-claims" className="text-primary-600 hover:text-primary-700 text-sm font-medium">
+              View all claims →
             </Link>
           </div>
+        </div>
+      </div>
+
+      {/* Quick Actions */}
+      <div className="bg-white rounded-lg shadow-sm border p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Link to="/create-item" className="flex items-center p-4 rounded-lg border border-gray-200 hover:border-primary-300 hover:bg-primary-50 transition-colors">
+            <Plus className="w-6 h-6 text-primary-600 mr-3" />
+            <div>
+              <div className="font-medium text-gray-900">Report Lost/Found Item</div>
+              <div className="text-sm text-gray-600">Create a new item report</div>
+            </div>
+          </Link>
+          <Link to="/items" className="flex items-center p-4 rounded-lg border border-gray-200 hover:border-primary-300 hover:bg-primary-50 transition-colors">
+            <Package className="w-6 h-6 text-primary-600 mr-3" />
+            <div>
+              <div className="font-medium text-gray-900">Browse Items</div>
+              <div className="text-sm text-gray-600">Search for your lost items</div>
+            </div>
+          </Link>
+          <Link to="/my-claims" className="flex items-center p-4 rounded-lg border border-gray-200 hover:border-primary-300 hover:bg-primary-50 transition-colors">
+            <FileText className="w-6 h-6 text-primary-600 mr-3" />
+            <div>
+              <div className="font-medium text-gray-900">My Claims</div>
+              <div className="text-sm text-gray-600">Track your claim status</div>
+            </div>
+          </Link>
         </div>
       </div>
 
@@ -177,9 +272,9 @@ function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white rounded-lg shadow-sm border p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Items</h3>
-          {recentActivity.items && recentActivity.items.length > 0 ? (
+          {recentItems && recentItems.length > 0 ? (
             <div className="space-y-3">
-              {recentActivity.items.slice(0, 5).map((item) => (
+              {recentItems.map((item) => (
                 <div key={item._id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                   <div className="flex-1">
                     <div className="font-medium text-gray-900">{item.title}</div>
@@ -215,14 +310,14 @@ function DashboardPage() {
 
         <div className="bg-white rounded-lg shadow-sm border p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Claims</h3>
-          {recentActivity.claims && recentActivity.claims.length > 0 ? (
+          {recentClaims && recentClaims.length > 0 ? (
             <div className="space-y-3">
-              {recentActivity.claims.slice(0, 5).map((claimData, index) => (
+              {recentClaims.map((claimData, index) => (
                 <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                   <div className="flex-1">
-                    <div className="font-medium text-gray-900">{claimData.item.title}</div>
+                    <div className="font-medium text-gray-900">{claimData.title || 'Unknown Item'}</div>
                     <div className="text-sm text-gray-600">
-                      Claimed from {claimData.item.reportedBy?.name}
+                      Claimed {claimData.reportedBy?.name ? `from ${claimData.reportedBy.name}` : ''}
                     </div>
                   </div>
                   <div className="text-right">
