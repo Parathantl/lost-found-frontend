@@ -43,7 +43,7 @@ function ItemManagement() {
     type: '',
     category: '',
     status: '',
-    location: isStaff ? (user?.branch || '') : '', // Staff defaults to their branch
+    district: isStaff ? (user?.branch || '') : '', // Staff defaults to their branch
   });
   
   const [selectedItems, setSelectedItems] = useState([]);
@@ -64,7 +64,7 @@ function ItemManagement() {
       
       // For staff users, always enforce location filtering
       if (isStaff) {
-        queryFilters.location = user?.branch || '';
+        queryFilters.district = user?.branch || '';
       }
       
       // Filter based on active tab
@@ -149,7 +149,7 @@ function ItemManagement() {
     // For staff, only allow updates to items from their location
     if (isStaff) {
       const selectedItemsData = items.filter(item => selectedItems.includes(item._id));
-      const invalidItems = selectedItemsData.filter(item => item.location !== user?.branch);
+      const invalidItems = selectedItemsData.filter(item => item.district !== user?.branch);
       
       if (invalidItems.length > 0) {
         toast.error('You can only update items from your assigned location');
@@ -234,7 +234,7 @@ function ItemManagement() {
     if (isAdmin) return true;
     if (isStaff) {
       // Staff can only manage items from their location
-      return item.location === user?.branch;
+      return item.district === user?.branch;
     }
     return false;
   };
@@ -477,7 +477,7 @@ function ItemManagement() {
               type: '',
               category: '',
               status: '',
-              location: isStaff ? (user?.branch || '') : '',
+              district: isStaff ? (user?.branch || '') : '',
             })}
             className="btn-secondary"
           >
@@ -610,7 +610,7 @@ function ItemManagement() {
                   type: '',
                   category: '',
                   status: '',
-                  location: isStaff ? (user?.branch || '') : '',
+                  district: isStaff ? (user?.branch || '') : '',
                 });
               }}
               className="btn-secondary"
